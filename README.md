@@ -1,97 +1,179 @@
-# Mini YOLO from Scratch: Training & Inference Guide
+# MiniYOLO: Real-time Fatigue Expression Detector
+*A custom, lightweight, production-ready MiniYOLO object detector modeled after the Ultralytics YOLOv8/YOLO11 architecture, specialized in identifying human expression and fatigue signals (`closed_eye`, `open_eye`, `yawning`).*
 
-This guide walks you through setting up your environment, configuring your dataset, and running training and prediction on your eye/yawn detection dataset.
+---
+
+## 🏗️ System Architecture Overview
+The system is divided into modular package components to maximize code reusability, training performance, and compilation compatibility:
+
+```mermaid
+graph TD
+    subgraph Data Pipeline
+        dataset[dataset.py <br> Polygon Converter & Cache]
+        transforms[transforms.py <br> HSV, Affine, Flip Augmentations]
+    end
+
+    subgraph MiniYOLO Model
+        backbone[backbone.py <br> Darknet Feature Extractor]
+        neck[neck.py <br> PANet Multi-Scale Fuser]
+        head[head.py <br> Decoupled Head]
+        yolo[yolo.py <br> Model Wrappers]
+        yolo --> backbone
+        yolo --> neck
+        yolo --> head
+    end
+
+    subgraph Loss & Metrics
+        loss[yolo_loss.py <br> CIoU & Focal Loss]
+        evaluator[evaluator.py <br> Common AP Calculations]
+    end
+
+    subgraph Execution Launchers
+        train[train.py]
+        validate[validate.py]
+        predict[predict.py]
+    end
+
+    train --> Data Pipeline
+    train --> MiniYOLO Model
+    train --> loss
+    validate --> evaluator
+    predict --> evaluator
+```
+
+---
+
+## 📂 Project Directory Structure
+
+```
+mini_yolo/
+├── configs/
+│   └── config.py              # Central configurations & central hyperparameter overrides
+├── info/
+│   ├── book.md                # Technical engineering documentation book
+│   └── first report for train 1/ # Performance logs, charts, and predictions
+├── runs/
+│   ├── train/                 # Checkpoints (*.pth) and training logs
+│   └── predictions/           # Inference outputs (annotated images)
+├── src/
+│   ├── data/
+│   │   ├── dataset.py         # YOLO Dataset loader & dynamic polygon converter
+│   │   └── transforms.py      # Augmentation pipeline classes
+│   ├── engine/
+│   │   ├── evaluator.py       # Centered validation matching & AP computation
+│   │   ├── predictor.py       # High-performance FP16 inference engine
+│   │   ├── trainer.py         # Training loop, optimizer/scheduler step manager
+│   │   └── validator.py       # Standalone checkpoint evaluation launcher
+│   ├── losses/
+│   │   └── yolo_loss.py       # Multi-positive target matcher & loss functions
+│   ├── models/
+│   │   ├── backbone.py        # Darknet multi-scale feature extractor (P3, P4, P5)
+│   │   ├── blocks.py          # ConvBNSiLU, Bottleneck, C2f, and SPPF modules
+│   │   ├── head.py            # Decoupled bounding box, class, and obj head
+│   │   ├── neck.py            # PANet neck multi-scale feature fuser
+│   │   └── yolo.py            # Unified MiniYOLO network wrapper
+│   ├── utils/
+│   │   ├── boxes.py           # Geometric coordinate utilities (IoU, CIoU loss, etc.)
+│   │   ├── logger.py          # Formatted console outputs
+│   │   ├── metrics.py         # Confusion matrix and AP calculation helpers
+│   │   ├── misc.py            # Extra system utilities
+│   │   ├── nms.py             # Torchvision-accelerated class-agnostic NMS
+│   │   ├── seed.py            # Reproducibility seed initializer
+│   │   └── visualization.py   # Prediction box visualization & label renderer
+│   ├── predict.py             # Inference launcher
+│   ├── train.py               # Main training launcher
+│   └── validate.py            # Main validation launcher
+└── requirements.txt           # Dependency requirements
+```
 
 ---
 
 ## 🛠️ Step 1: Environment Setup
 
-We recommend setting up a Python virtual environment to manage dependencies cleanly.
+We manage dependencies cleanly through a Python virtual environment.
 
-1.  **Open your terminal** in the project root directory (`C:\Users\Admin\Desktop\mini_yolo`).
+1.  **Navigate to the project root directory**:
+    ```powershell
+    cd C:\Users\Admin\Desktop\mini_yolo
+    ```
 2.  **Activate the Virtual Environment**:
-    The virtual environment has already been initialized in the `env` folder. Run:
-    *   **CMD**:
-        ```cmd
-        env\Scripts\activate.bat
-        ```
     *   **PowerShell**:
         ```powershell
-        env\Scripts\activate.ps1
+        .\venv\Scripts\Activate.ps1
         ```
-3.  **Install Required Libraries Offline**:
-    Since all required offline wheels are stored inside `env/wheels/`, install them offline:
+    *   **CMD**:
+        ```cmd
+        venv\Scripts\activate.bat
+        ```
+3.  **Install Dependencies**:
     ```bash
-    pip install --no-index --find-links=env/wheels -r requirements.txt
+    pip install -r requirements.txt
     ```
 
 ---
 
 ## 📂 Step 2: Dataset Configuration
 
-Your dataset follows the standard Ultralytics YOLO format located under `C:\Users\Admin\Desktop\mini_yolo\dataset`:
+Your dataset follows the standard Ultralytics YOLO format located under the `dataset/` directory:
 
 ```
 dataset/
 ├── train/
 │   ├── images/          # Training images (.jpg, .png, etc.)
-│   └── labels/          # Matching label text files for training images
-├── val/
-│   ├── images/          # Validation images
-│   └── labels/          # Matching label text files for validation images
-└── dataset.yaml         # Dataset classes configuration metadata
+│   └── labels/          # YOLO label files (.txt) containing bounding boxes
+└── val/
+    ├── images/          # Validation images
+    └── labels/          # YOLO label files
 ```
 
 ### Bounding Box Label Format
-Each image has a corresponding `.txt` file of the same name (e.g., `image_001.jpg` matches `image_001.txt`). Each line represents one object:
+Each image has a corresponding `.txt` file of the same name (e.g., `image_001.jpg` matches `image_001.txt`). 
 ```
 <class_id> <x_center> <y_center> <width> <height>
 ```
-*   `class_id`: Integer index of the class:
-    *   `0`: `closed_eye`
-    *   `1`: `open_eye`
-    *   `2`: `yawning`
-*   Coordinates are normalized between `0.0` and `1.0` relative to the image dimensions.
+*   `class_id`: Integer index representing `0`: `closed_eye`, `1`: `open_eye`, `2`: `yawning`.
+*   Coordinates are normalized between `0.0` and `1.0` relative to image dimensions.
+*   **Automatic Polygon Support**: The dataset loader automatically detects and converts Roboflow polygon segmentation coordinates (`len(coords) > 5`) into standard bounding box coordinates on the fly.
 
 ---
 
 ## ✏️ Step 3: Match Configuration to Your Dataset
 
-Open `src/config.py` and modify these parameters as needed:
-1.  **`CLASS_NAMES`**: Configured to `['closed_eye', 'open_eye', 'yawning']`.
-2.  **`NUM_CLASSES`**: Automatically set to `3`.
-3.  **`IMG_SIZE`**: Default is `416` (must be a multiple of 32).
-4.  **`EPOCHS`**: Currently set to `1` for your test run. For a full training sequence, increase this (e.g., `50` or `100`).
-5.  **`BATCH_SIZE`**: Default is `8`. If using a GPU, you can increase this to `16` or `32`.
-6.  **`SAVE_EVERY`**: Set this (e.g., `5`) to save periodic checkpoint files (`runs/train/mini_yolo_epoch_N.pth`) every N epochs.
-7.  **`RESUME` & `CHECKPOINT_PATH`**: Set `RESUME = True` and point `CHECKPOINT_PATH` to a saved checkpoint (e.g., `"runs/train/mini_yolo_epoch_5.pth"`) to restore the model, optimizer, scheduler, epoch index, and best mAP, continuing training seamlessly.
+All training and inference parameters are configured inside **`configs/config.py`**. Key configurations include:
+*   **`CLASS_NAMES`**: Configured to `['closed_eye', 'open_eye', 'yawning']`.
+*   **`IMG_SIZE`**: Set to `416` (must be a multiple of 32).
+*   **`OPTIMIZER`**: Options include `"AdamW"` or `"SGD"`.
+*   **`SCHEDULER`**: Options include `"CosineAnnealingLR"`, `"CosineAnnealingWarmRestarts"`, or `None`.
+*   **`RESUME` & `CHECKPOINT_PATH`**: Set `RESUME = True` and point `CHECKPOINT_PATH` to a saved checkpoint (e.g., `"runs/train/mini_yolo_epoch_20.pth"`) to continue training seamlessly.
 
 ---
 
-## 🚀 Step 4: Run Training, Validation & Testing
+## 🚀 Step 4: Run Training, Validation & Inference
 
-Run these commands from the project root folder:
+All modules are executed as Python packages to ensure clean module path resolution:
 
-### 1. Start Training:
-```bash
-python src/train.py
+### 1. Start/Resume Training:
+```powershell
+python -m src.train
 ```
-Trains the model on the training set and evaluates it on the validation set after each epoch. The best weights are saved to `runs/train/mini_yolo_best.pth`.
+*   Verifies dataset directories and begins training. Saves checkpoint weights periodically to `runs/train/` and automatically saves the best performing weights to `runs/train/mini_yolo_best.pth`.
 
 ### 2. Standalone Model Evaluation:
-```bash
-python src/validation.py
+```powershell
+python -m src.validate
 ```
-Loads the best checkpoint and computes mAP@50 and mAP@50-95 metrics class-by-class on the entire validation set. It prints a detailed table summary of the results.
+*   Loads the best model weights checkpoint, evaluates precision and recall metrics on the validation dataset, and logs a formatted results table.
 
-### 3. Run Batch Inference on Test Set:
-```bash
-python src/test.py
+### 3. Single-Image Bounding Box Prediction:
+```powershell
+python -m src.predict
 ```
-Scans `dataset/test/images/`, runs inference on all images, applies NMS, and saves the drawn box visualization results to `runs/test/`. (If no test folder exists, it automatically falls back to validation images and saves outputs to `runs/val_test/`).
+*   Loads the trained model, performs inference on sample validation images, and saves visual box overlays directly to `runs/predictions/images/`.
 
-### 4. Run Single-Image Prediction:
-```bash
-python src/predict.py
-```
-Loads the best checkpoint, performs object detection on a single validation image, prints detections, and saves the visual result to `runs/prediction_output.jpg`.
+---
+
+## 📊 Chapter 5: Training Reports & Performance Logs
+
+Detailed training statistics, validation precision/recall progression curves, and engineering reports are documented inside the **`info/`** folder:
+*   **`info/book.md`**: Complete technical guide detailing the project history, compilation modifications, and structural refactorings.
+*   **`info/first report for train 1/`**: Performance logs, validation mAP charts (`map_curve.png`), and sample inference screenshots for your first 20-epoch training session.
