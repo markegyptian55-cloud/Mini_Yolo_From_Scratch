@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+env/
+.venv/
+.env/
+
+# Datasets (Prevent uploading raw image/label datasets to GitHub)
+dataset/
+
+# Runs and checkpoints (Prevent uploading large weight files)
+runs/
+*.pth
+*.onnx
+*.engine
+
+# IDE configurations
+.vscode/
+.idea/
+.project
+.pydevproject
+
+# System files
+.DS_Store
+Thumbs.db
