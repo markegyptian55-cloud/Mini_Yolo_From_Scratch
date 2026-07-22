@@ -50,7 +50,9 @@ NUM_WORKERS = 0  # 0 is safest on Windows to avoid multiprocessing issues
 # 8. Checkpoint saving configuration
 SAVE_EVERY = 5  # Optionally save checkpoints every N epochs
 RESUME = True
-CHECKPOINT_PATH = os.path.join(PROJECT_ROOT, "runs", "train", "mini_yolo_best.pth")
+_last_ckpt = os.path.join(PROJECT_ROOT, "runs", "train", "mini_yolo_last.pth")
+_best_ckpt = os.path.join(PROJECT_ROOT, "runs", "train", "mini_yolo_best.pth")
+CHECKPOINT_PATH = _last_ckpt if os.path.exists(_last_ckpt) else _best_ckpt
 
 # 9 & 10. DataLoader parameters
 PIN_MEMORY = torch.cuda.is_available()
