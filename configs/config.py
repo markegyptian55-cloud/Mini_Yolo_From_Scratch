@@ -27,6 +27,9 @@ def set_seed(seed=SEED):
 # Run seeding automatically on import
 set_seed(SEED)
 
+# Project Root (one level up from configs folder)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # 4. Inference parameters
 CONF_THRESHOLD = 0.25
 NMS_IOU_THRESHOLD = 0.45
@@ -62,10 +65,7 @@ USE_AMP = True if torch.cuda.is_available() else False
 
 # Model parameters
 # Strides at which predictions are made (Downsampling factors of Backbone)
-STRIDES = [8, 16, 32] 
-
-# Project Root (one level up from configs folder)
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STRIDES = [8, 16, 32]
 
 # Dataset paths
 DATA_DIR = os.path.join(PROJECT_ROOT, "dataset")
