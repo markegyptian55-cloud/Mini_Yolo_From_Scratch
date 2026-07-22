@@ -39,15 +39,15 @@ BASE_CHANNELS = 16
 
 # Training parameters
 BATCH_SIZE = 8
-EPOCHS = 20
-LEARNING_RATE = 1e-3
+EPOCHS = 85
+LEARNING_RATE = 5e-4
 WEIGHT_DECAY = 1e-4
 NUM_WORKERS = 0  # 0 is safest on Windows to avoid multiprocessing issues
 
 # 8. Checkpoint saving configuration
 SAVE_EVERY = 5  # Optionally save checkpoints every N epochs
-RESUME = False
-CHECKPOINT_PATH = ""
+RESUME = True
+CHECKPOINT_PATH = os.path.join(PROJECT_ROOT, "runs", "train", "mini_yolo_best.pth")
 
 # 9 & 10. DataLoader parameters
 PIN_MEMORY = torch.cuda.is_available()
@@ -83,9 +83,9 @@ MODEL_SAVE_PATH = os.path.join(CHECKPOINT_DIR, "mini_yolo_best.pth")
 CLASS_NAMES = ['closed_eye', 'open_eye', 'yawning']
 
 # Loss weights and parameters
-BOX_WEIGHT = 5.0
+BOX_WEIGHT = 7.5
 OBJ_WEIGHT = 1.0
-CLS_WEIGHT = 1.0
+CLS_WEIGHT = 1.25
 LABEL_SMOOTHING = 0.0
 CACHE_IMAGES = False
 

@@ -218,6 +218,8 @@ def main() -> None:
             
             model.load_state_dict(checkpoint["model_state_dict"])
             optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = config.LEARNING_RATE
             
             if scheduler is not None and "scheduler_state_dict" in checkpoint and checkpoint["scheduler_state_dict"] is not None:
                 scheduler.load_state_dict(checkpoint["scheduler_state_dict"])

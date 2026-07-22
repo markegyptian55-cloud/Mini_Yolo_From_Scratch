@@ -13,6 +13,7 @@
 7. **Chapter 7**: Training Progress & Validation Metrics History
 8. **Chapter 8**: CPU Training Performance & Time Analysis
 9. **Chapter 9**: Recommended Future Optimizations
+10. **Chapter 10**: Fine-Tuning Setup & Hyperparameter Adjustments
 
 ---
 
@@ -40,7 +41,8 @@ mini_yolo/
 ├── configs/
 │   └── config.py              # Central configurations & central hyperparameter overrides
 ├── info/
-│   └── book.md                # [This File] Complete engineering documentation
+│   ├── book.md                # [This File] Complete engineering documentation
+│   └── first report for train 1/ # Performance logs, charts, and predictions
 ├── runs/
 │   ├── train/                 # Checkpoints (*.pth) and training logs
 │   └── predictions/           # Inference outputs (annotated images)
@@ -63,6 +65,7 @@ mini_yolo/
 │   │   └── yolo.py            # Unified MiniYOLO network wrapper
 │   ├── utils/
 │   │   ├── boxes.py           # Geometric coordinate utilities (IoU, CIoU loss, etc.)
+│   │   ├── generate_report_visuals.py # Automated report visual generator
 │   │   ├── logger.py          # Formatted console outputs
 │   │   ├── metrics.py         # Confusion matrix and AP calculation helpers
 │   │   ├── misc.py            # Extra system utilities
@@ -159,13 +162,15 @@ Roboflow datasets frequently export labels containing segmented polygon vertices
 
 Here is the trace of configuration changes implemented:
 
-| Hyperparameter | Old Settings (Baseline) | New Settings (Optimized) | Technical Reason |
-| :--- | :--- | :--- | :--- |
-| **Optimizer** | SGD (Hardcoded) | **AdamW** (Configurable) | Offers faster convergence on complex object topologies. |
-| **Scheduler** | None | **CosineAnnealingLR** | Smoothly decays learning rate to prevent early local minima traps. |
-| **Loss Weights** | Box: `1.0`, Obj: `1.0`, Cls: `1.0` | **Box: `0.05`, Obj: `1.0`, Cls: `0.5`** | Matches YOLOv8 balancing to prevent box regression gradients from overwhelming classifications. |
-| **Label Smoothing** | `0.0` (Disabled) | **`0.0`** (Adjustable) | Kept off but corrected mathematical normalization in loss function. |
-| **Augmentations** | Resize, ToTensor, Normalize | **RandomAffine, RandomHSV, RandomHorizontalFlip** | Adds training robustness against varying camera angles, lighting conditions, and orientations. |
+| Hyperparameter | Baseline Settings | Initial Train Settings | Fine-Tuning Settings (Current) | Technical Reason |
+| :--- | :--- | :--- | :--- | :--- |
+| **Optimizer** | SGD | AdamW | **AdamW** | Offers fast convergence on multi-class topologies. |
+| **Scheduler** | None | CosineAnnealingLR | **CosineAnnealingLR** | Smoothly decays learning rate over extended epochs. |
+| **Learning Rate** | `1e-3` | `1e-3` | **`5e-4`** | Lower learning rate prevents destructive updates during fine-tuning. |
+| **Epochs Limit** | `1` | `20` | **`50`** | Extends training up to 50 epochs for deeper convergence. |
+| **Box Weight** | `1.0` | `5.0` | **`7.5`** | Increases box regression focus for precise eye/mouth boundary fitting. |
+| **Class Weight** | `1.0` | `1.0` | **`1.25`** | Improves distinction between `open_eye` and `closed_eye` states. |
+| **Resume Mode** | `False` | `False` | **`True`** | Resumes training from `mini_yolo_best.pth`. |
 
 ---
 
@@ -176,11 +181,11 @@ The model is trained on a dataset containing 3 classes (`closed_eye`, `open_eye`
 
 *   **Initial Baseline (Before refactorings)**:
     *   *Best mAP@50*: `0.0649`
-*   **New Refactored Training Run (Current Progress on Real Dataset)**:
+*   **New Refactored Training Run (Initial 20 Epochs)**:
     *   **Epoch 5**: `0.4284` mAP@50
     *   **Epoch 10**: `0.5067` mAP@50
     *   **Epoch 15**: `0.5817` mAP@50 (🥇 Peak validation accuracy)
-    *   **Epoch 20**: `0.5817` mAP@50 (Latest checkpoint)
+    *   **Epoch 20**: `0.5817` mAP@50 (Completed stage 1)
 
 ---
 
@@ -198,15 +203,27 @@ Due to hardware availability, training was run using the **CPU** rather than a G
 *   **Average Processing Speed**: $\sim 1.45 \text{ iterations (batches) per second}$
 *   **Total Seconds per Epoch**: $\sim 2,875 \text{ seconds}$
 *   **Total Minutes per Epoch**: $\sim 48.0 \text{ minutes}$ (roughly **$0.8\text{ hours}$**)
-*   **Current Training Run Duration (to Epoch 20)**: $\sim 960 \text{ minutes}$ (**$16.0\text{ hours}$**)
-*   **Projected Duration for 50 Epochs**: $\sim 2,400 \text{ minutes}$ (**$40.0\text{ hours}$**)
+*   **Completed Stage 1 Duration (to Epoch 20)**: $\sim 960 \text{ minutes}$ (**$16.0\text{ hours}$**)
+*   **Remaining Fine-Tuning Duration (Epochs 21 to 85, 65 Epochs)**: $\sim 3,120 \text{ minutes}$ (**$52.0\text{ hours}$**)
+*   **Total Projected Duration for 85 Epochs**: $\sim 4,080 \text{ minutes}$ (**$68.0\text{ hours}$**)
 
 ---
 
 ## Chapter 9: Recommended Future Optimizations
 
-To push the model's accuracy past `0.60` mAP@50 and improve compute speed, we recommend the following next steps:
+To push the model's accuracy past `0.70` mAP@50 and improve compute speed, we recommend the following next steps:
 
 1.  **Run with GPU (CUDA)**: Training on a CUDA-enabled GPU would increase batch iteration speed to $\sim 50\text{-}100\text{ iterations/second}$, cutting epoch training time down from **48 minutes** to **under 2 minutes**.
 2.  **Add Model EMA (Exponential Moving Average)**: Keeping a moving average of weights during gradient updates smooths out validation fluctuations.
 3.  **Adjust Image Size to 640**: Modern YOLO models are optimized for 640x640 resolution. Upgrading `IMG_SIZE` from 416 to 640 in `configs/config.py` will help resolve smaller object details.
+
+---
+
+## Chapter 10: Fine-Tuning Setup & Hyperparameter Adjustments
+
+To achieve optimal fine-tuning performance without adding code complexity to the model architecture:
+
+1.  **Checkpoint Resumption**: `RESUME` is enabled in `configs/config.py` pointing to `runs/train/mini_yolo_best.pth`.
+2.  **Learning Rate Refinement**: `LEARNING_RATE` is adjusted to `5e-4` (half of initial rate) to refine features without disturbing established pre-trained weights. `train.py` dynamically updates optimizer parameter group learning rates upon loading checkpoints.
+3.  **Loss Rebalancing**: `BOX_WEIGHT` is increased to `7.5` and `CLS_WEIGHT` to `1.25` to sharpen bounding box edges around subtle eye regions.
+4.  **Code Simplicity Preserved**: Model architecture definitions (`src/models/yolo.py`, `backbone.py`, `head.py`, `neck.py`) remain untouched, ensuring the code stays lightweight, clean, and easy to study.
