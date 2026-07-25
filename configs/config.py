@@ -27,6 +27,9 @@ def set_seed(seed=SEED):
 # Run seeding automatically on import
 set_seed(SEED)
 
+# Project Root (one level up from configs folder)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # 4. Inference parameters
 CONF_THRESHOLD = 0.25
 NMS_IOU_THRESHOLD = 0.45
@@ -39,15 +42,17 @@ BASE_CHANNELS = 16
 
 # Training parameters
 BATCH_SIZE = 8
-EPOCHS = 20
-LEARNING_RATE = 1e-3
+EPOCHS = 85
+LEARNING_RATE = 5e-4
 WEIGHT_DECAY = 1e-4
 NUM_WORKERS = 0  # 0 is safest on Windows to avoid multiprocessing issues
 
 # 8. Checkpoint saving configuration
 SAVE_EVERY = 5  # Optionally save checkpoints every N epochs
-RESUME = False
-CHECKPOINT_PATH = ""
+RESUME = True
+_last_ckpt = os.path.join(PROJECT_ROOT, "runs", "train", "mini_yolo_last.pth")
+_best_ckpt = os.path.join(PROJECT_ROOT, "runs", "train", "mini_yolo_best.pth")
+CHECKPOINT_PATH = _last_ckpt if os.path.exists(_last_ckpt) else _best_ckpt
 
 # 9 & 10. DataLoader parameters
 PIN_MEMORY = torch.cuda.is_available()
@@ -62,10 +67,7 @@ USE_AMP = True if torch.cuda.is_available() else False
 
 # Model parameters
 # Strides at which predictions are made (Downsampling factors of Backbone)
-STRIDES = [8, 16, 32] 
-
-# Project Root (one level up from configs folder)
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STRIDES = [8, 16, 32]
 
 # Dataset paths
 DATA_DIR = os.path.join(PROJECT_ROOT, "dataset")
@@ -83,9 +85,9 @@ MODEL_SAVE_PATH = os.path.join(CHECKPOINT_DIR, "mini_yolo_best.pth")
 CLASS_NAMES = ['closed_eye', 'open_eye', 'yawning']
 
 # Loss weights and parameters
-BOX_WEIGHT = 5.0
+BOX_WEIGHT = 7.5
 OBJ_WEIGHT = 1.0
-CLS_WEIGHT = 1.0
+CLS_WEIGHT = 1.25
 LABEL_SMOOTHING = 0.0
 CACHE_IMAGES = False
 
