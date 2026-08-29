@@ -1,0 +1,59 @@
+# MiniYOLO-v2 hyperparameters
+# Tuned for: driver-monitoring face crops, 3 classes, 22.2k train images,
+# LARGE objects (mean box = 41% of frame width; only 2.2% of boxes < 16 px).
+# Reference points: Ultralytics YOLO26n COCO recipe + YOLOv8 defaults, adapted.
+
+# ---------------------------------------------------------------- optimisation
+lr0: 0.005            # SGD / MuSGD initial LR   (YOLO26n used 0.0054 @ batch 128)
+lr0_adamw: 0.001      # used automatically when --optimizer adamw
+lrf: 0.05             # final LR = lr0 * lrf     (YOLO26n used 0.0495)
+momentum: 0.937       # SGD momentum / AdamW beta1  (YOLO26n used 0.947)
+weight_decay: 0.0005  # specified for the nominal batch, auto-rescaled
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.1
+nominal_batch: 64     # gradient accumulation target
+muon_ratio: 0.5       # MuSGD: blend weight of the Muon-orthogonalised direction
+
+ema_decay: 0.9999
+ema_tau: 2000
+
+# ---------------------------------------------------------------- loss
+box: 7.5              # CIoU gain
+cls: 0.7              # BCE gain (soft TAL targets)
+l1: 1.0               # L1 on ltrb distances -- kept from the DFL-free recipe
+dfl: 1.5              # distribution focal loss gain (ignored when reg_max == 1).
+                      # 1.5 is the YOLOv8/v11 value; not tuned for this dataset yet.
+
+# ---------------------------------------------------------------- assignment
+tal_topk: 10          # one-to-many candidates per GT (one-to-one is fixed at 1)
+tal_alpha: 0.5        # align = cls^alpha * CIoU^beta
+tal_beta: 6.0
+stal: true            # YOLO26 small-target-aware assignment
+stal_min_size: 8.0    # GT side below this (px) ...
+stal_ref_size: 16.0   # ... is inflated to this for candidate selection only
+
+prog_alpha_init: 0.8  # ProgLoss: weight on the one-to-many head at epoch 0
+prog_alpha_final: 0.1 # ... linearly annealed to this by the last epoch
+
+# ---------------------------------------------------------------- augmentation
+mosaic: 0.85          # 4-image mosaic; also the main source of scale diversity
+close_mosaic: 20      # disable mosaic/mixup/erasing for the final N epochs
+mixup: 0.10
+scale: 0.5            # +/- 50% random resize
+degrees: 10.0         # head tilt is real in a car cabin -- higher than COCO's ~0
+shear: 2.0
+translate: 0.1
+perspective: 0.0005   # slight; camera mounting angle varies
+fliplr: 0.5
+flipud: 0.0
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.5            # cabin lighting swings hard (tunnel, sun, night)
+gray: 0.10            # IR / monochrome driver cameras
+blur: 0.05            # motion blur + defocus on a live feed
+erasing: 0.25         # occlusion: hand over mouth, sunglasses, wheel
+
+# multi-scale training window, as a fraction of --imgsz (1.0/1.0 disables)
+multi_scale_lo: 0.84  # 384 -> 320
+multi_scale_hi: 1.34  # 384 -> 512

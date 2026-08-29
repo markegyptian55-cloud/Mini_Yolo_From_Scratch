@@ -1,0 +1,45 @@
+Tested Video Analysis -- 15-MaleGlasses.mp4  (Experiment 2)
+============================================================
+Model      : MiniYOLO-v2 clean-labels (runs/v2/v2_n384_clean/weights/best.pt,
+             epoch 283, fitness 0.5241)
+Source     : dataset/VIDEO FOR TEST/15-MaleGlasses.mp4
+Output     : 15-MaleGlasses_annotated.mp4 (this folder)
+Resolution : 640 x 480, native 30 FPS
+Frames     : 2639 (full clip, every frame run through the model)
+Conf thres : 0.25
+
+Inference speed (RTX 2000 Ada, GPU)
+------------------------------------
+Average latency    : 5.81 ms/frame
+Average throughput : 172.0 FPS
+-> ~5.7x faster than the video's native 30 FPS.
+CAUTION: experiment 1 measured 12.2 ms/frame on the identical architecture and
+input size. Nothing about the model got faster -- exp1's figure was taken while
+other applications were loading the machine. Treat this as a measurement-
+conditions difference, not a model speedup, until both checkpoints are
+re-benchmarked back to back on an idle machine.
+
+Detections per class
+---------------------
+Total boxes detected across all frames: 5637
+
+  open_eye   : 4958 boxes  ( 87.96% )
+  closed_eye :  373 boxes  (  6.62% )
+  yawning    :  306 boxes  (  5.43% )
+
+vs experiment 1 on the same clip (6165 boxes total):
+  open_eye   5350 (86.78%) -> 4958 (87.96%)
+  closed_eye  553 ( 8.97%) ->  373 ( 6.62%)
+  yawning     262 ( 4.25%) ->  306 ( 5.43%)
+
+Reading: same overall story -- a single subject wearing glasses, eyes open for
+the large majority of the clip, occasional blinks, a few yawns. Exp2 fires 528
+fewer boxes overall and notably fewer closed_eye (-180). Consistent with the
+higher precision measured on the test split (0.642 -> 0.664): fewer spurious
+detections. Without frame-level ground truth for this clip it cannot be proven
+that the removed boxes were all false positives, but the direction matches.
+
+Rendering: ADAS-style HUD (src/v2/hud.py) -- thin 1px boxes in fixed semantic
+colours (red=closed_eye, green=open_eye, amber=yawning), short label +
+confidence above each box, and a compact nav bar showing model name, debounced
+driver state, rolling fatigue score with SAFE/WARNING/CRITICAL, and live FPS.

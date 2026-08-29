@@ -1,217 +1,199 @@
-# 👁️ MiniYOLO: Real-Time Driver Fatigue Expression Detector
-> **An optimized, lightweight, production-grade object detector modeled after the Ultralytics YOLOv8/YOLO11 architecture. Specializing in high-frequency monitoring of human expression and fatigue signals.**
+# 👁️ MiniYOLO-v2 — Real-Time Driver Fatigue Detector
+
+> A from-scratch, edge-first object detector for driver-monitoring: **anchor-free, NMS-free, dual-head**, built and trained without Ultralytics. Detects `closed_eye`, `open_eye`, `yawning` and turns those detections into PERCLOS / blink / microsleep / yawn-rate telemetry over live video.
+
+[![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/pytorch-2.6.0%2Bcu124-ee4c2c)](https://pytorch.org/)
+[![Params](https://img.shields.io/badge/params-2.4M-informational)]()
+[![License](https://img.shields.io/badge/license-unspecified-lightgrey)]()
+
+<p align="center"><sub><b>Note:</b> the badges above are static (not CI-driven). Numbers are current as of the last commit to <code>main</code> — see <a href="./info/book.md"><code>info/book.md</code></a> for the full, dated experiment log with every number sourced.</sub></p>
 
 ---
 
-## ⚡ Performance & Accuracy Dashboard (Full 85-Epoch Training Run)
+## What this is
 
-> [!NOTE]
-> Training was executed over a dataset of **33,365 training images** and **5,477 validation images** with a batch size of 8.
+Two model generations live side by side:
 
-| Metric | Baseline (Pre-Refactor) | Peak State (Epoch 70) | Final State (Epoch 85) | Total Performance Gain |
-| :--- | :---: | :---: | :---: | :---: |
-| **mAP @ 0.50** | `0.0649` | **`0.6805` (68.05%)** | **`0.6805` (68.05%)** | **📈 +948.5% Accuracy Increase** |
-| **mAP @ 0.50:0.95** | `0.0150` | **`0.3420` (34.20%)** | **`0.3420` (34.20%)** | **📈 +2180.0% Precision Increase** |
-| **Epochs Completed** | 1 | **70 / 85** | **85 / 85** | **🏆 100% Training Complete** |
-| **Inference Latency** | — | **~36.2 ms / image** | **~36.2 ms / image** | **⚡ Real-time Capable** |
-
----
-
-## 📊 Epoch-by-Epoch Progress History
-
-| Stage | Epoch | Checkpoint Output File | mAP@50 | Status / Milestones |
-| :--- | :---: | :--- | :---: | :--- |
-| **Stage 1: Initial Training** | 5 | `mini_yolo_epoch_5.pth` | `0.4284` | Initial convergence & augmentations |
-| | 10 | `mini_yolo_epoch_10.pth` | `0.5067` | Feature stability achieved |
-| | 15 | `mini_yolo_epoch_15.pth` | `0.5817` | Cross 55% mAP threshold |
-| | 20 | `mini_yolo_epoch_20.pth` | `0.5926` | Stage 1 baseline completed |
-| **Stage 2: Fine-Tuning Run** | 25 | `mini_yolo_epoch_25.pth` | `0.5937` | Lower learning rate refinement |
-| | 30 | `mini_yolo_epoch_30.pth` | `0.6120` | Cross 60% mAP milestone |
-| | 35 | `mini_yolo_epoch_35.pth` | `0.6263` | Gradient smoothing active |
-| | 40 | `mini_yolo_epoch_40.pth` | `0.6263` | Boundary refinement |
-| | 45 | `mini_yolo_epoch_45.pth` | `0.6469` | High precision eye classification |
-| | 50 | `mini_yolo_epoch_50.pth` | `0.6712` | Cross 67% mAP threshold |
-| | 55 | `mini_yolo_epoch_55.pth` | `0.6727` | Deep features convergence |
-| | 60 | `mini_yolo_epoch_60.pth` | `0.6795` | Fine detail eye tracking |
-| | 65 | `mini_yolo_epoch_65.pth` | `0.6795` | Stable precision plateau |
-| | **70** | **`mini_yolo_best.pth`** | **`0.6805` (68.05%)** | 🥇 **PEAK ACCURACY ACHIEVED** |
-| | 75 | `mini_yolo_epoch_75.pth` | `0.6805` | Optimal accuracy preserved |
-| | 80 | `mini_yolo_epoch_80.pth` | `0.6805` | Final learning rate decay step |
-| **Final State** | **85** | **`mini_yolo_last.pth`** | **`0.6805` (68.05%)** | 🏆 **Completed All 85 Epochs** |
+- **`src/`** (v1) — the original CPU prototype. Frozen, its weights no longer exist on any machine this project has run on. Kept for the record, not for comparison.
+- **`src/v2/`** (current) — a YOLO26/YOLOv10-style detector, built from scratch:
+  - **Anchor-free**, no objectness branch
+  - **NMS-free** one-to-one head at inference (dual one2many/one2one training, YOLOv10-style)
+  - **Distribution Focal Loss** box regression (`reg_max=16`, added in Experiment 3)
+  - **MuSGD** optimizer, **STAL** (small-target-aware label assignment), **ProgLoss** (progressive one2many→one2one blending)
+  - **2.4M parameters**, ~5 MB exported (FP16 ONNX)
+- **`src/v2/temporal.py`** — a separate, testable state machine that turns per-frame detections into PERCLOS, blink-vs-microsleep classification, and yawn-rate over a rolling window. See [§ Temporal driver monitoring](#temporal-driver-monitoring).
 
 ---
 
-## 📂 Target Classification Classes
+## Results so far
 
-The model is optimized to recognize and track three fatigue-indicating classes:
+Three experiments, one variable changed at a time, all on the **same locked dataset** (`dataset/`, 18,447 images — see [§ Dataset](#dataset)). Full methodology, hypotheses and what each result did and didn't prove: [`info/book.md`](./info/book.md).
 
-*   **`closed_eye`** (Class ID: `0`) ──► Indicates fatigue, drowsiness, or micro-sleep.
-*   **`open_eye`** (Class ID: `1`) ──► Indicates alert, wakeful state.
-*   **`yawning`** (Class ID: `2`) ──► Indicates early-stage fatigue triggers.
+| Experiment | What changed | mAP50 | mAP50-95 | Precision | Recall | Status |
+|---|---|:---:|:---:|:---:|:---:|:---|
+| **1 — baseline** | first full run, mixed-convention data | 0.907 | 0.541 | 0.653 | 0.944 | ✅ done — [report](./checkpoints/Expi-1-imagez-384/) |
+| **2 — clean labels** | dataset convention fixed (see below) | 0.900 | 0.483 | 0.664 | 0.940 | ✅ done — [report](./checkpoints/Expi-2-imagez-384/) |
+| **3 — DFL head** | `reg_max` 1→16, adds distribution focal loss | — | — | — | — | 🔄 **training now** |
+
+> Exp 1 and Exp 2 were scored on *different* test splits (see book.md §6.7 for why) — read the mAP50/mAP50-95 columns as within-experiment, not a strict apples-to-apples row comparison, without the caveat in the linked report.
+
+**What Experiment 2 showed:** the original dataset mixed two annotation conventions under one class name — a tight per-eye box and a whole-face box, both labelled `closed_eye`/`open_eye`, 3–8× apart in scale. Filtering that out moved `open_eye` mAP50 +7.3 points but left `mAP50-95` essentially flat (0.541 → 0.483) — meaning the accuracy ceiling wasn't the labels. That pointed at the detection head.
+
+**What Experiment 3 tests:** the head was regressing 4 raw scalars per box (`reg_max=1`, no DFL) — the weakest box representation available. `reg_max=16` with a proper distribution-focal loss term is now training. Two honest caveats about this run are documented in `book.md` §7.6 before results are in, including that it deliberately walks back a design choice YOLO26 itself made (DFL trades ~0.2 MB of export size and some quantization-friendliness for expected localization gains).
 
 ---
 
-## 🏗️ System Architecture Overview
-The system is divided into modular package components to maximize code reusability, training performance, and compilation compatibility:
+## Live snapshot — Experiment 3
+
+```
+epoch 20/300   mAP50 0.7213   mAP50-95 0.3838   P 0.4224   R 0.8514
+80.3 s/epoch (69.8 train + 10.5 val)   elapsed 0.53 h
+```
+
+Early-run numbers, **not comparable to the finished exp 1 / exp 2 rows above** — mAP50-95 typically keeps climbing well past epoch 20. Re-check `checkpoints/Expi-3-imagez-384/REPORTS EXPI-3/training_log.csv` for the current line.
+
+---
+
+## Architecture
 
 ```mermaid
 graph TD
-    subgraph Data_Pipeline["Data Pipeline"]
-        dataset["dataset.py<br>Polygon Converter & Cache"]
-        transforms["transforms.py<br>HSV, Affine, Flip Augmentations"]
-    end
+    stem[Stem Conv 3 to 16, stride 2]
+    s1[Stage 1: Conv s2 + C2f]
+    s2[Stage 2: Conv s2 + C2f]
+    s3[Stage 3: Conv s2 + C2f]
+    s4[Stage 4: Conv s2 + C2f + SPPF]
+    stem --> s1 --> s2 --> s3 --> s4
 
-    subgraph MiniYOLO_Model["MiniYOLO Model"]
-        backbone["backbone.py<br>Darknet Feature Extractor"]
-        neck["neck.py<br>PANet Multi-Scale Fuser"]
-        head["head.py<br>Decoupled Head"]
-        yolo["yolo.py<br>Model Wrappers"]
-        yolo --> backbone
-        yolo --> neck
-        yolo --> head
-    end
+    fpn[FPN top-down: upsample plus concat]
+    pan[PAN bottom-up: stride-2 conv plus concat]
+    s2 --> fpn
+    s3 --> fpn
+    s4 --> fpn
+    fpn --> pan
 
-    subgraph Loss_Metrics["Loss & Metrics"]
-        loss["yolo_loss.py<br>CIoU & Focal Loss"]
-        evaluator["evaluator.py<br>Common AP Calculations"]
-    end
-
-    subgraph Execution_Launchers["Execution Launchers"]
-        train["train.py"]
-        validate["validate.py"]
-        predict["predict.py"]
-    end
-
-    train --> Data_Pipeline
-    train --> MiniYOLO_Model
-    train --> loss
-    validate --> evaluator
-    predict --> evaluator
+    o2m[one2many branch - training only]
+    o2o[one2one branch - NMS-free inference]
+    dfl[DFL: 4 x reg_max logits, softmax, integral to ltrb]
+    cls[DWConv class branch]
+    pan --> o2m
+    pan --> o2o
+    o2m --> dfl
+    o2o --> dfl
+    dfl --> cls
 ```
+
+| stage | detail |
+|---|---|
+| Backbone | `MiniDarknetV2` — widths (16,32,64,128,256), depths (1,2,2,1), outputs P3/8, P4/16, P5/32 |
+| Neck | `MiniPANv2` — FPN + PAN fusion |
+| Head | Decoupled, anchor-free, DFL box regression (`reg_max=16`), no objectness, dual one2many/one2one |
+| Loss | CIoU + L1 + DFL (box) · BCE with TAL soft targets (cls) · task-aligned + STAL assignment |
+| Optimizer | MuSGD (`muon_ratio=0.5`), cosine LR, ProgLoss α: 0.8 → 0.1 |
+| Size | 2.4M params · ~2.1 GFLOPs @384px · ~5.0 MB FP16 ONNX |
 
 ---
 
-## 📂 Project Directory Structure
+## Dataset
+
+**`dataset/`** — one locked, validated dataset. 18,447 images / 28,864 boxes, hardlink-built and re-validated after every move (14 automated gates + 2 explicitly documented limitations, not silently assumed away).
+
+| split | images | boxes | closed_eye | open_eye | yawning |
+|---|---:|---:|---:|---:|---:|
+| train | 14,442 | 22,632 | 10,435 | 5,418 | 6,779 |
+| val | 2,101 | 3,223 | 1,551 | 663 | 1,009 |
+| test | 1,904 | 3,009 | 1,391 | 716 | 902 |
+
+- Provenance, the annotation-convention audit, the τ-threshold study behind the Experiment 2 filter, and every documented limitation (including that subject-disjointness *cannot* be established from the source metadata): **[`dataset/DATASET_REPORT.md`](./dataset/DATASET_REPORT.md)**.
+- Re-validate any time: `python -m src.v2.tools.validate_dataset --data dataset --full-hash`
+
+---
+
+## Temporal driver monitoring
+
+Detection is per-frame; fatigue is not. `src/v2/temporal.py` is a standalone state machine (27 passing tests, no video required to run them) that turns a stream of per-frame boxes into:
+
+- **PERCLOS** — % eyelid closure over a rolling 60 s window
+- **Blink vs. microsleep** — separated by duration (natural blink 100–400 ms; microsleep alarm fires the instant a closure crosses 1.5 s, not when it ends)
+- **Yawn rate** — continuous-duration yawns per minute
+
+Every threshold is a conventional literature default — **none is clinically validated against this dataset**, which has no drowsiness ground truth. Treat the output as instrumentation, not diagnosis (spelled out in the module docstring and every generated report).
+
+Rendered live onto video by `src/v2/hud.py` — nav panel with PERCLOS/blink/yawn readout plus a full-width alarm strip on an active microsleep.
+
+---
+
+## Repository layout
 
 ```
 mini_yolo/
-├── configs/
-│   └── config.py              # Central configurations & central hyperparameter overrides
+├── dataset/                          the one locked, validated dataset (see above)
+│   ├── data.yaml  DATASET_REPORT.md
+│   └── metadata/                     manifests, class stats, test-set SHA-256 lock
+├── checkpoints/                      every experiment, self-contained
+│   └── Expi-<N>-imagez-<Size>/
+│       ├── weights/                  best.pt, last.pt, best.onnx  (git-ignored, regenerable)
+│       └── REPORTS EXPI-<N>/         evaluation.txt, training_log.csv, training_summary.txt,
+│                                      args.yaml, hyp.yaml, plots/, demo_video/
 ├── info/
-│   ├── book.md                # Technical engineering documentation book
-│   └── first report for train 1/ # Performance logs, charts, and predictions
-├── runs/
-│   ├── train/                 # Checkpoints (*.pth) and training logs
-│   └── predictions/           # Inference outputs (annotated images)
+│   ├── book.md                       the full engineering record - every experiment,
+│   │                                  every hypothesis, every number sourced, every
+│   │                                  correction to earlier claims left visible, not edited away
+│   └── study.md                      beginner-friendly architecture walkthrough
 ├── src/
-│   ├── data/
-│   │   ├── dataset.py         # YOLO Dataset loader & dynamic polygon converter
-│   │   └── transforms.py      # Augmentation pipeline classes
-│   ├── engine/
-│   │   ├── evaluator.py       # Centered validation matching & AP computation
-│   │   ├── predictor.py       # High-performance FP16 inference engine
-│   │   ├── trainer.py         # Training loop, optimizer/scheduler step manager
-│   │   └── validator.py       # Standalone checkpoint evaluation launcher
-│   ├── losses/
-│   │   └── yolo_loss.py       # Multi-positive target matcher & loss functions
-│   ├── models/
-│   │   ├── backbone.py        # Darknet multi-scale feature extractor (P3, P4, P5)
-│   │   ├── blocks.py          # ConvBNSiLU, Bottleneck, C2f, and SPPF modules
-│   │   ├── head.py            # Decoupled bounding box, class, and obj head
-│   │   ├── neck.py            # PANet neck multi-scale feature fuser
-│   │   └── yolo.py            # Unified MiniYOLO network wrapper
-│   ├── utils/
-│   │   ├── boxes.py           # Geometric coordinate utilities (IoU, CIoU loss, etc.)
-│   │   ├── generate_report_visuals.py # Automated report visual generator
-│   │   ├── logger.py          # Formatted console outputs
-│   │   ├── metrics.py         # Confusion matrix and AP calculation helpers
-│   │   ├── misc.py            # Extra system utilities
-│   │   ├── nms.py             # Torchvision-accelerated class-agnostic NMS
-│   │   ├── seed.py            # Reproducibility seed initializer
-│   │   └── visualization.py   # Prediction box visualization & label renderer
-│   ├── predict.py             # Inference launcher
-│   ├── train.py               # Main training launcher
-│   └── validate.py            # Main validation launcher
-└── requirements.txt           # Dependency requirements
+│   ├── v2/                           current model (train / val / export / report / temporal / hud)
+│   └── ...                           v1, frozen
+├── AGENTS.md                         project rules for anyone (human or agent) working here
+└── requirements.txt
 ```
+
+Every training run is self-contained under `checkpoints/Expi-<N>-imagez-<Size>/` — see [`AGENTS.md`](./AGENTS.md) for the two standing rules this project enforces (directory layout, and mandatory logging to `book.md`). Model weights and rendered demo videos are not committed (regenerable, see `.gitignore`); every number and plot describing them is.
 
 ---
 
-## 🛠️ Step 1: Environment Setup
+## Quickstart
 
-We manage dependencies cleanly through a Python virtual environment.
-
-1.  **Navigate to the project root directory**:
-    ```powershell
-    cd C:\Users\Admin\Desktop\mini_yolo
-    ```
-2.  **Activate the Virtual Environment**:
-    *   **PowerShell**:
-        ```powershell
-        .\venv\Scripts\Activate.ps1
-        ```
-    *   **CMD**:
-        ```cmd
-        venv\Scripts\activate.bat
-        ```
-3.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
----
-
-## 📂 Step 2: Dataset Configuration
-
-Your dataset follows the standard Ultralytics YOLO format located under the `dataset/` directory:
-
-```
-dataset/
-├── train/
-│   ├── images/          # Training images (.jpg, .png, etc.)
-│   └── labels/          # YOLO label files (.txt) containing bounding boxes
-└── val/
-    ├── images/          # Validation images
-    └── labels/          # YOLO label files
-```
-
-### Bounding Box Label Format
-Each image has a corresponding `.txt` file of the same name (e.g., `image_001.jpg` matches `image_001.txt`). 
-```
-<class_id> <x_center> <y_center> <width> <height>
-```
-*   `class_id`: Integer index representing `0`: `closed_eye`, `1`: `open_eye`, `2`: `yawning`.
-*   Coordinates are normalized between `0.0` and `1.0` relative to image dimensions.
-*   **Automatic Polygon Support**: The dataset loader automatically detects and converts Roboflow polygon segmentation coordinates (`len(coords) > 5`) into standard bounding box coordinates on the fly.
-
----
-
-## 🚀 Step 3: Run Training, Validation & Inference
-
-All modules are executed as Python packages to ensure clean module path resolution:
-
-### 1. Start Training:
 ```powershell
-python -m src.train
-```
-*   Verifies dataset directories and begins training. Saves checkpoint weights periodically to `runs/train/` and automatically saves the best performing weights to `runs/train/mini_yolo_best.pth`.
+conda activate AI-3.11          # or any env with the requirements below
+cd mini_yolo
+pip install -r requirements.txt
 
-### 2. Standalone Model Evaluation:
-```powershell
-python -m src.validate
-```
-*   Loads the best model weights checkpoint (`mini_yolo_best.pth`), evaluates precision and recall metrics on the validation dataset, and logs a formatted results table.
+# train
+python -m src.v2.train --data dataset/data.yaml --scale n --imgsz 384 --batch 64 `
+  --epochs 300 --workers 4 --seed 0 --reg-max 16 `
+  --project checkpoints --name Expi-N-imagez-384 --exist-ok
 
-### 3. Single-Image Bounding Box Prediction:
-```powershell
-python -m src.predict
+# full report: evaluation + 10 plots + annotated demo video with fatigue HUD
+python -m src.v2.report --weights "checkpoints/Expi-N-imagez-384/weights/best.pt" `
+  --data dataset/data.yaml --video "dataset/VIDEO FOR TEST/15-MaleGlasses.mp4" `
+  --out "checkpoints/Expi-N-imagez-384/REPORTS EXPI-N"
+
+# export to NMS-free FP16 ONNX for edge deployment
+python -m src.v2.export --weights "checkpoints/Expi-N-imagez-384/weights/best.pt" `
+  --imgsz 384 --half --device cuda:0 --name best
 ```
-*   Loads the trained model, performs inference on sample validation images, and saves visual box overlays directly to `runs/predictions/images/`.
+
+Replace `Expi-N-imagez-384` with the real experiment folder name (e.g. `Expi-3-imagez-384`).
+Requires: Python 3.11, PyTorch 2.6.0+cu124 (CUDA recommended, CPU works). Full dependency list in `requirements.txt`.
 
 ---
 
-## 📊 Chapter 4: Training Reports & Performance Logs
+## Documentation index
 
-Detailed training statistics, validation precision/recall progression curves, and engineering reports are documented inside the **`info/`** folder:
-*   **`info/book.md`**: Complete technical guide detailing the project history, compilation modifications, and structural refactorings.
-*   **`info/first report for train 1/`**: Performance logs, validation mAP charts (`map_curve.png`), and sample inference screenshots for your training sessions.
+| Doc | What's in it |
+|---|---|
+| [`info/book.md`](./info/book.md) | The engineering record — every experiment, dated, with corrections to earlier claims kept visible rather than edited away |
+| [`AGENTS.md`](./AGENTS.md) | Project rules: directory layout, mandatory result logging, known bugs fixed, things not to do |
+| [`dataset/DATASET_REPORT.md`](./dataset/DATASET_REPORT.md) | Dataset provenance, cleaning methodology, quality audit, documented limitations |
+| [`info/study.md`](./info/study.md) | Beginner-friendly walkthrough of the architecture |
+
+---
+
+## Classes
+
+| ID | Class | Meaning |
+|:---:|---|---|
+| 0 | `closed_eye` | fatigue / drowsiness / micro-sleep signal |
+| 1 | `open_eye` | alert, wakeful |
+| 2 | `yawning` | early fatigue signal |

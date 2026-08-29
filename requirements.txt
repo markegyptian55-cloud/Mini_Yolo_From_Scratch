@@ -1,4 +1,15 @@
+# --- v1 (src/) ---
 torch>=2.0.0
 numpy>=1.20.0
 pillow>=9.0.0
 tqdm>=4.64.0
+
+# --- v2 (src/v2/) ---
+torchvision>=0.15.0      # NMS fallback path only
+opencv-python>=4.8.0     # mosaic / perspective / video IO
+pyyaml>=6.0
+pandas>=2.0.0            # results.csv -> plots
+matplotlib>=3.7.0
+thop>=0.1.1              # GFLOPs accounting
+onnx>=1.15.0             # export
+onnxruntime>=1.16.0      # export verification / CPU deployment

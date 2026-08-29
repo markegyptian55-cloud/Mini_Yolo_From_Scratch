@@ -1,0 +1,80 @@
+================================================================================
+                    DATASET AUDIT & SUMMARY REPORT
+================================================================================
+Project: Mini YOLO Driver Monitoring System
+Dataset Path: C:\ssd projects\mini_yolo\dataset
+Image Format: JPEG (.jpg), 640x640 resolution
+Annotation Format: YOLO format (normalized x_center, y_center, width, height)
+Classes:
+  [0] closed_eye
+  [1] open_eye
+  [2] yawning
+Generated At: 2026-08-26
+================================================================================
+
+1. OVERALL DATASET METRICS
+--------------------------------------------------------------------------------
+Total Images:                    28,170
+Total Label Files (.txt):        28,170 (100% paired 1-to-1 match, 0 missing)
+Empty / Background Images:       2
+Total Bounding Box Annotations:  38,611
+Average Annotations per Image:   1.37
+Corrupted / Unreadable Images:   0
+Invalid / Out-of-Bounds Coords:  0
+Zero-Area Bounding Boxes:        0
+
+2. SPLIT BREAKDOWN
+--------------------------------------------------------------------------------
+Split       Images      Label Files   Empty/Background   Total Boxes   Share (%)
+--------------------------------------------------------------------------------
+train       22,215      22,215        2                  30,424        78.9%
+val          3,082       3,082        0                   4,206        10.9%
+test         2,873       2,873        0                   3,981        10.2%
+--------------------------------------------------------------------------------
+TOTAL       28,170      28,170        2                  38,611       100.0%
+--------------------------------------------------------------------------------
+
+3. CLASS DISTRIBUTION BY SPLIT
+--------------------------------------------------------------------------------
+
+--- TRAIN SPLIT (22,215 images, 30,424 boxes) ---
+  * [0] closed_eye : 13,857 boxes (45.54%) | In  9,111 images (41.01%)
+  * [1] open_eye   :  9,788 boxes (32.17%) | In  7,259 images (32.68%)
+  * [2] yawning    :  6,779 boxes (22.28%) | In  6,762 images (30.44%)
+
+--- VAL SPLIT (3,082 images, 4,206 boxes) ---
+  * [0] closed_eye :  1,932 boxes (45.93%) | In  1,244 images (40.36%)
+  * [1] open_eye   :  1,265 boxes (30.08%) | In    952 images (30.89%)
+  * [2] yawning    :  1,009 boxes (23.99%) | In  1,003 images (32.54%)
+
+--- TEST SPLIT (2,873 images, 3,981 boxes) ---
+  * [0] closed_eye :  1,767 boxes (44.39%) | In  1,135 images (39.51%)
+  * [1] open_eye   :  1,312 boxes (32.96%) | In    982 images (34.18%)
+  * [2] yawning    :    902 boxes (22.66%) | In    899 images (31.29%)
+
+--------------------------------------------------------------------------------
+GRAND TOTAL (ALL SPLITS COMBINED - 28,170 images, 38,611 boxes)
+--------------------------------------------------------------------------------
+  * [0] closed_eye : 17,556 boxes (45.47%) | In 11,490 images (40.79%)
+  * [1] open_eye   : 12,365 boxes (32.02%) | In  9,193 images (32.63%)
+  * [2] yawning    :  8,690 boxes (22.51%) | In  8,664 images (30.76%)
+--------------------------------------------------------------------------------
+
+4. OBJECT GEOMETRY & BOX SIZES (on 640x640 images)
+--------------------------------------------------------------------------------
+Class        Median W   Median H   Median Area   Median Aspect Ratio (W/H)
+--------------------------------------------------------------------------------
+closed_eye   141.0 px   114.0 px    13,320 px²   1.18
+open_eye     112.0 px   108.0 px     9,727 px²   1.02
+yawning      466.5 px   383.0 px   177,253 px²   1.13
+--------------------------------------------------------------------------------
+
+5. CURATION & INTEGRITY SUMMARY
+--------------------------------------------------------------------------------
+- Built with near-duplicate collapse: size >= 3 clusters collapsed (22,099 removed).
+- Cross-split near-duplicate leakage: 385 leaking images removed.
+- Dataset-Main remains authoritative benchmark; this curated set provides clean,
+  leak-free training and validation splits.
+- Class distribution ratios remain consistent across train, val, and test splits
+  (~45% closed_eye, ~32% open_eye, ~23% yawning).
+================================================================================

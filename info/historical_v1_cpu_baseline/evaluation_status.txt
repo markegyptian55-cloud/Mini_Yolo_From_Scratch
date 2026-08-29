@@ -1,0 +1,40 @@
+Experiment 1 Baseline -- Evaluation Status
+============================================
+Model: Custom MiniYOLO v1 (Decoupled Head, Darknet Backbone, PANet Neck)
+Classes: closed_eye, open_eye, yawning
+Device: CPU (Intel CPU)
+Total epochs: 20
+Total elapsed training duration: 15 hours 58 minutes
+
+STATUS: NO TEST-SET EVALUATION EXISTS FOR THIS MODEL
+------------------------------------------------------
+No checkpoint (.pth) was ever saved to disk for this run, and no run
+directory / results.csv / raw log survives -- only the final summary
+report (original_report.md) and validation prediction images were kept.
+Confirmed with a search of the whole C:\ssd projects drive (not just this
+repo) for any .pth / mini_yolo_best* file -- nothing matches this model;
+the only .pth files that exist belong to unrelated projects (rfdetr,
+faster-rcnn, yolo11m/26n checkpoints under "nano big").
+Because the weights don't exist, this model cannot be reloaded, so a
+proper test-split run (image count, per-class P/R/mAP, confusion matrix,
+speed) is NOT reproducible -- there is no way to generate those numbers
+without re-training from scratch. Everything below is transcribed from
+original_report.md, the only surviving record.
+
+VALIDATION mAP@50 PROGRESSION (transcribed, source: original_report.md)
+------------------------------------------------------------------------
+epoch  1  -> mAP50 0.0649   (baseline, model reorganization)
+epoch  5  -> mAP50 0.4284   (augmentations active)
+epoch 10  -> mAP50 0.5067   (loss convergence stable)
+epoch 15  -> mAP50 0.5817   ** BEST -- checkpoint saved here (never kept) **
+epoch 20  -> mAP50 0.5817   (run end, plateaued since epoch 15)
+
+No per-class breakdown, precision/recall, mAP50-95, or test-split numbers
+were ever recorded for this run -- the report only tracked overall mAP50
+at 5-epoch checkpoints.
+
+For a full, reproducible evaluation (per-class metrics, test-split score,
+confusion matrix, speed benchmark, 10 diagnostic plots), see the parent
+folder instead: info/experiment 1 baseline/ (GPU, 300 epochs, mAP50 0.907
+on 2873 held-out test images, precision/recall/mAP50-95 both total and
+per class -- see metrics_test.txt there).

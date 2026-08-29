@@ -1,0 +1,93 @@
+Experiment 1 Baseline -- Training Log
+=========================================
+Model      : MiniYOLO-v2 (Decoupled Head, Darknet Backbone, PANet Neck, e2e/NMS-free head)
+Run dir    : runs/v2/v2_n384
+Weights    : runs/v2/v2_n384/weights/best.pt (epoch 294, best_fitness 0.5731)
+Full per-epoch numbers (all 300 epochs, loss/mAP/P/R/lr/speed): full_epoch_log.txt
+
+Run config (args.yaml)
+------------------------
+scale        : n
+imgsz        : 384 (multi-scale train range 320-512, see hyp below)
+batch        : 64
+epochs       : 300 (target and completed)
+optimizer    : musgd (muon-style SGD)
+device       : GPU 0, NVIDIA RTX 2000 Ada Generation
+amp          : true
+patience     : 60
+val_conf     : 0.001 | val_iou : 0.7 | max_det : 300
+
+Hyperparameters (hyp.yaml)
+-----------------------------
+lr0              : 0.005      (0.001 for adamw path)
+lrf              : 0.05
+momentum         : 0.937
+weight_decay     : 0.0005
+warmup_epochs    : 3.0        warmup_momentum 0.8   warmup_bias_lr 0.1
+nominal_batch    : 64
+muon_ratio       : 0.5
+ema_decay        : 0.9999     ema_tau 2000
+loss weights     : box 7.5 | cls 0.7 | l1 1.0
+TAL assigner     : topk 10 | alpha 0.5 | beta 6.0 | small-object TAL (stal) on
+                   stal_min_size 8.0 | stal_ref_size 16.0
+progressive loss : alpha 0.8 -> 0.1 over training (one-to-many -> one-to-one blend)
+
+Augmentation (hyp.yaml)
+--------------------------
+mosaic        : 0.85  (closed at epoch 280 -- see below)
+close_mosaic  : 20    (last 20 epochs run mosaic-free)
+mixup         : 0.1
+scale         : 0.5   degrees 10.0   shear 2.0   translate 0.1   perspective 0.0005
+flip          : fliplr 0.5, flipud 0.0
+color jitter  : hsv_h 0.015, hsv_s 0.7, hsv_v 0.5
+other         : grayscale 0.1, blur 0.05, random erasing 0.25
+multi-scale   : 0.84x - 1.34x of imgsz (i.e. ~320-512px) every batch
+
+Timeline
+--------
+1. First launch: epoch 0 -> 52.
+   Interrupted at epoch 52 (not a crash) -- Windows Update forced a system
+   restart (MoUsoCoreWorker.exe, reason "Service pack (Planned)", followed by
+   a TrustedInstaller "OS Upgrade" restart) at 21:45-21:50 on 2026-08-24.
+   Checkpoint at interruption: P 0.514, R 0.928, mAP50 0.849, mAP50-95 0.479
+   (fitness 0.516). Source: results.csv epoch 52.
+
+2. Resumed via `python src/v2/train.py --resume runs/v2/v2_n384/weights/last.pt`
+   from epoch 53 through epoch 300 (completed in full, no further interruption).
+   Total wall time for this second leg: 12.12 h for 248 epochs
+   -> average ~2m56s/epoch (347 iters/epoch @ batch 64), matches per-epoch
+   times logged live during the run (typically 2:27-2:40, briefly faster
+   near epoch 212-213 when background load dropped).
+   Mosaic augmentation closed at epoch 280 (final 20-epoch fine-tune phase,
+   per close_mosaic=20).
+
+Combined total training time (both legs, epoch 1 -> 300): ~12.12h (resumed
+leg) + the first-leg CPU-independent GPU time for epochs 1-52 (not
+separately timestamped, but consistent with the same ~2.5-3 min/epoch rate
+-> roughly 2.2-2.6h) = approx 14.3-14.7h wall clock total, run across two
+sessions due to the mid-run interruption.
+
+Final result (epoch 300, best checkpoint epoch 294)
+----------------------------------------------------
+best fitness = 0.5731
+  Class         P       R      mAP50   mAP50-95
+  all         0.645   0.950   0.907    0.536
+  closed_eye  0.581   0.935   0.888    0.439
+  open_eye    0.537   0.942   0.865    0.531
+  yawning     0.816   0.974   0.966    0.638
+
+Progression (from full_epoch_log.txt, key checkpoints)
+-----------------------------------------------------------
+epoch  52 : mAP50 0.849  (pre-interruption)
+epoch 100 : mAP50 0.868
+epoch 150 : mAP50 0.889
+epoch 200 : mAP50 0.898
+epoch 250 : mAP50 0.903
+epoch 300 : mAP50 0.907  (run end)
+
+See plots/01_training_curves.png for the full per-epoch loss/mAP/PR/lr curves,
+full_epoch_log.txt for every one of the 300 epochs' raw numbers, and
+metrics_val.txt / metrics_test.txt / summary.json for the final evaluation.
+See historical_v1_cpu_baseline/ for the earlier CPU-only preliminary run
+that preceded this one (no weights survive for that run, so its log/eval
+files are limited to what its summary report recorded).

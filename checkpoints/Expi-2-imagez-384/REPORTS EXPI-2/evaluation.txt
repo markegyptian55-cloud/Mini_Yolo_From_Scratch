@@ -1,0 +1,28 @@
+MiniYOLO-v2 Evaluation Report
+=================================
+weights     : C:\ssd projects\mini_yolo\runs\v2\v2_n384_clean\weights\best.pt
+checkpoint  : epoch 283  best_fitness 0.5241072334190018
+scale       : n
+classes     : ['closed_eye', 'open_eye', 'yawning']
+
+--- val split ---------------------------------------------------------
+images: 2101   boxes: 3223
+
+         Class   Images  Instances        P        R    mAP50  mAP50-95
+           all        -       3223    0.657    0.942    0.891     0.483
+    closed_eye        -       1551    0.652    0.927    0.892     0.417
+      open_eye        -        663    0.508    0.922    0.812     0.397
+       yawning        -       1009    0.811    0.977    0.969     0.636
+
+speed: 1.02 ms/img (983 img/s)
+
+--- test split --------------------------------------------------------
+images: 1904   boxes: 3009
+
+         Class   Images  Instances        P        R    mAP50  mAP50-95
+           all        -       3009    0.664    0.940    0.900     0.483
+    closed_eye        -       1391    0.662    0.927    0.900     0.415
+      open_eye        -        716    0.530    0.919    0.836     0.382
+       yawning        -        902    0.799    0.976    0.964     0.652
+
+speed: 0.91 ms/img (1098 img/s)

@@ -1,0 +1,39 @@
+Apples-to-apples baseline: EXPERIMENT 1 model evaluated on EXPERIMENT 2's clean test split
+============================================================================================
+Why this file exists
+--------------------
+Experiment 2 trains on `dataset_clean/`, a convention-consistent subset of the
+original dataset (see src/v2/tools/make_clean_dataset.py). Its val/test splits are
+SUBSETS of the originals, so exp2's numbers cannot be compared directly against
+exp1's numbers on the original test split. To make the comparison valid, the
+exp1 checkpoint was re-evaluated on exp2's clean test split. That is the row
+exp2 must beat.
+
+Command used
+------------
+python -m src.v2.val --weights runs/v2/v2_n384/weights/best.pt \
+    --data dataset_clean/data.yaml --split test
+
+Result (exp1 weights, clean test split, 1904 images / 3009 boxes)
+------------------------------------------------------------------
+mode: one-to-one (NMS-free)   weights=EMA   imgsz=384
+
+         Class   Images  Instances        P        R    mAP50  mAP50-95
+           all        -       3009    0.642    0.926    0.870     0.473
+    closed_eye        -       1391    0.636    0.929    0.885     0.412
+      open_eye        -        716    0.494    0.881    0.763     0.355
+       yawning        -        902    0.798    0.968    0.962     0.651
+
+speed: 1.17 ms/img (853 img/s, batch=32)
+
+Reading
+-------
+Exp1 scores WORSE here (mAP50-95 0.473) than on its own mixed test split
+(0.541). open_eye collapses hardest: 0.355 here vs 0.543 on the mixed split,
+and mAP50 0.763 vs 0.881. That is the expected signature of the annotation-
+convention problem -- on the mixed split exp1 could score easy points on the
+big face-scale boxes; with those removed, only genuine per-eye localization
+counts, and it is much weaker at that. yawning is unchanged (0.651 vs 0.650),
+exactly as predicted, since no yawning boxes were removed by the filter.
+
+TARGET FOR EXPERIMENT 2: beat mAP50 0.870 / mAP50-95 0.473 on this split.

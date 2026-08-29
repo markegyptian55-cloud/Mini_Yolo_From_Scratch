@@ -1,0 +1,87 @@
+Experiment 2 "clean-labels" -- Training Log
+=============================================
+Model      : MiniYOLO-v2 (Decoupled Head, Darknet Backbone, PANet Neck, e2e/NMS-free head)
+Run dir    : runs/v2/v2_n384_clean
+Weights    : runs/v2/v2_n384_clean/weights/best.pt (epoch 283, best_fitness 0.5241)
+Full per-epoch numbers (all 300 epochs): full_epoch_log.txt
+
+HYPOTHESIS UNDER TEST
+---------------------
+Experiment 1 diagnosis: the source dataset merged two incompatible annotation
+conventions under the same class names -- per-eye boxes (median width
+0.10-0.19) and whole-face boxes labelled with the eye state (median width
+0.62-0.78), a 3-8x scale contradiction. closed_eye was 23.7% face-scale,
+open_eye 45.0%. Prediction: removing that contradiction lifts accuracy,
+especially for open_eye (the most contaminated class).
+
+WHAT CHANGED vs EXPERIMENT 1 -- exactly one variable
+------------------------------------------------------
+Dataset only:  dataset/  ->  dataset_clean/
+  built by src/v2/tools/make_clean_dataset.py; drops every IMAGE containing a
+  face-scale eye box (w > 0.4). Whole image, not just the box -- deleting the
+  box alone would turn a real eye into unlabelled background and actively
+  train the model to miss it.
+  train 22215 -> 14440 imgs | val 3082 -> 2101 | test 2873 -> 1904
+  Zero yawning boxes removed (a yawn is inherently face-scale).
+  Eye-box bimodality after filtering: 0.0% face-scale (was 23.7% / 45.0%).
+
+Everything else held identical to experiment 1 so the gain is attributable:
+  scale n | imgsz 384 (multi-scale 320-512) | batch 64 | epochs 300
+  optimizer musgd | seed 0 | patience 60 | amp true | same hyp.yaml
+  (DFL deliberately NOT introduced here -- reserved for experiment 3 so its
+   effect stays separable from the dataset fix.)
+
+RUN
+---
+Completed all 300 epochs in one session, no interruption.
+6.09 h wall clock, 225 iters/epoch (vs 347 in exp1, from the smaller train set)
+-> ~1.2 min/epoch. Mosaic closed at epoch 280 per close_mosaic=20.
+Best checkpoint at epoch 283; last 50 epochs gained only +0.0047 mAP50 /
++0.0024 mAP50-95, i.e. fully converged -- a longer schedule will not help.
+
+RESULT -- both models on the SAME clean test split (1904 imgs / 3009 boxes)
+----------------------------------------------------------------------------
+                      exp1        exp2       delta
+  all      P        0.642       0.664      +0.022
+  all      R        0.926       0.940      +0.014
+  all      mAP50    0.870       0.900      +0.030
+  all      mAP50-95 0.473       0.483      +0.010
+
+  closed_eye mAP50  0.885       0.900      +0.015
+  closed_eye 50-95  0.412       0.415      +0.003
+  open_eye   mAP50  0.763       0.836      +0.073   <-- largest gain
+  open_eye   50-95  0.355       0.382      +0.027
+  yawning    mAP50  0.962       0.964      +0.002
+  yawning    50-95  0.651       0.652      +0.001
+
+(exp1 row = its checkpoint re-evaluated on this same clean split, see
+ BASELINE_for_comparison.txt. Do NOT compare against exp1's numbers on the
+ original mixed test split -- different data, not comparable.)
+
+READING -- hypothesis partly confirmed, partly refuted
+--------------------------------------------------------
+CONFIRMED: the gain lands exactly where the diagnosis said it would. open_eye
+was the most contaminated class (45% face-scale) and gained the most by a wide
+margin (+0.073 mAP50). yawning had zero boxes removed and moved essentially not
+at all (+0.002), which is the control case behaving correctly. Overall mAP50
++0.030 with precision and recall both up is a real, clean win.
+
+REFUTED: the exp1 write-up predicted mAP50-95 would "move substantially". It did
+not -- only +0.010 (0.473 -> 0.483). The mAP50/mAP50-95 ratio is still ~0.54,
+essentially unchanged. So annotation-convention noise was NOT the main thing
+capping high-IoU localisation; it was mainly capping detection/classification.
+
+The remaining localisation ceiling therefore points at the head: it is DFL-free
+(reg_max=1, four raw scalars per location, CIoU+L1). That is the weakest box
+regression option available and is the standard cause of exactly this symptom.
+-> Experiment 3: add DFL (reg_max=8 or 16) on this same clean dataset, changing
+   nothing else, so its contribution is measured cleanly.
+
+NOTE ON SPEED
+-------------
+evaluation.txt reports 0.91 ms/img vs 1.17 for exp1, and the demo video 5.8 vs
+12.2 ms/frame. Architecture, parameter count and input size are IDENTICAL, so
+this is almost certainly machine load at measurement time (exp1's numbers were
+taken while other applications were running), not a real speedup. Do not report
+it as a model improvement without an isolated re-benchmark of both checkpoints
+back to back.

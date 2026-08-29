@@ -1,0 +1,13 @@
+# dataset_final_v1 -- locked baseline dataset for BASELINE_V1
+# Built by src/v2/tools/build_final_dataset.py. See DATASET_REPORT.md.
+# tau = 0.4 (eye-box scale rule, justified in analysis/threshold_study/)
+# No absolute 'path:' key: resolve_data() falls back to this file's own folder,
+# so the dataset survives being moved between drives.
+train: images/train
+val: images/val
+test: images/test
+nc: 3
+names:
+  0: closed_eye
+  1: open_eye
+  2: yawning
