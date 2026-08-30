@@ -62,7 +62,7 @@ class Trainer:
         # "REPORTS EXPI-<N>" directory, the epoch log belongs inside it as
         # training_log.csv, so the run lands in the final structure with nothing to
         # move afterwards. Otherwise fall back to the flat results.csv.
-        rep = next(iter(sorted(self.save_dir.glob("REPORTS EXPI-*"))), None)
+        rep = next(iter(sorted(self.save_dir.glob("REPORTS EXPI*"))), None)
         self.report_dir = rep
         self.csv_path = (rep / "training_log.csv") if rep else (self.save_dir / "results.csv")
 

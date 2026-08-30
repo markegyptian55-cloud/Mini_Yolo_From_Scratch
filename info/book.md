@@ -9,28 +9,30 @@ written down as a disagreement and **not** resolved by guessing. Where something
 recovered, it says so instead of estimating. Nothing in this document is inferred and presented
 as fact.
 
-Last updated **2026-08-29**. Chapters 6-8 and Chapter 0 were added that day, after the
-dataset audit and consolidation and the DFL head upgrade. **Chapter 0 corrects four
-statements made earlier in this document.** Where a later chapter overturns an earlier
-one, the earlier text is left standing with a pointer, not quietly edited -- a record
-that rewrites itself is not a record.
+Last updated **2026-08-30**. On that date the record was restructured: the dataset history and
+all three Foundation Experiments (exp 1-3, including exp 3's completed run) were consolidated
+into one comprehensive **Chapter 1**, so the entire empirical record survives the deletion of
+the underlying experiment directories intact and in one place. Process/tooling material that is
+not itself a model result (temporal monitoring, the checkpoints layout, bugs fixed) moved to
+**Appendix C**. Chapter 2 is reserved for the next phase of the project, which begins with a
+new dataset.
+
+**Chapter 0 corrects four statements originally made in the pre-restructuring text.** Where a
+later fact overturns an earlier one, the earlier text is left standing with a pointer, not
+quietly edited -- a record that rewrites itself is not a record. This applies across the
+2026-08-30 restructuring too: nothing was deleted, only reorganised and consolidated.
 
 ---
 
 ## Table of Contents
 
-- **Chapter 0** — Corrections: four things this document got wrong
-- **Chapter 1** — The datasets and where they came from
-- **Chapter 2** — Experiment 1: the v2 model, how it works, what happened
-- **Chapter 3** — Experiment 2: why a second dataset was built, and did it help
-- **Chapter 4** — Direct answers: fresh training vs fine-tuning, and the 29 MB checkpoint
-- **Chapter 5** — What is still wrong, and what to do next
-- **Chapter 6** — The dataset audit and the consolidation to one `dataset/`
-- **Chapter 7** — Experiment 3: the DFL head (code complete, run not started)
-- **Chapter 8** — Temporal driver monitoring: PERCLOS, blinks, microsleeps, yawns
-- **Chapter 9** — The `checkpoints/` reorganisation and the two standing rules
-- **Appendix A** — The v1 (`src/`) CPU model: an unresolved conflict in the record
-- **Appendix B** — Original v1 engineering notes, preserved verbatim
+- **Chapter 0** -- Corrections: statements this document got wrong
+- **Chapter 1** -- The Foundation Experiments (Exp 1 - Exp 3): dataset, all three experiments,
+  comparative tables, direct answers, and what remains unresolved
+- **Appendix A** -- The v1 CPU model: an unresolved conflict in the record
+- **Appendix B** -- Original v1 engineering notes, preserved verbatim
+- **Appendix C** -- Infrastructure built alongside the Foundation Experiments (temporal
+  monitoring, the checkpoints layout, bugs fixed, root cleanup)
 
 ---
 
@@ -38,27 +40,27 @@ that rewrites itself is not a record.
 
 Added 2026-08-29. Each item names where the wrong claim sits, what is actually true, and how
 it was checked. None of these were caught by the user; all four surfaced during the dataset
-audit in Chapter 6, three of them while trying to verify my own earlier work.
+audit (now Chapter 1, section 1.1), three of them while trying to verify my own earlier work.
 
 **C-1. A claimed 71% train/test leakage does not exist. Retracted in full.**
 During the audit I found that 1,787 filename stems appear in more than one split and reported
-this as catastrophic leakage. That was wrong. The stem before Roboflow's `.rf.<hash>` is a
+this as catastrophic leakage. That was wrong. The stem before Roboflow's rf-hash suffix is a
 shared numbering scheme, not an image identity: [measured] 5,173 of 8,179 stems map to more
-than one `visual_group_id`. Concretely, the four `000007_jpg.rf.*` files are one man's face
+than one visual_group_id. Concretely, the four 000007_jpg files at that stem are one man's face
 plus three close-ups of a *different* person's eye — four distinct visual groups.
-The authoritative identity is `visual_group_id` (perceptual near-duplicate clustering, in
-`dataset/metadata/lineage/curated_dataset_manifest.csv`). [measured] **Zero visual groups span
-two splits**, checked twice and re-checked by `validate_dataset.py`. True redundancy is 1.15×,
-not 3.44×. The original curation was sound. This claim never reached a report or a metric.
+The authoritative identity is visual_group_id (perceptual near-duplicate clustering, in the
+lineage manifest under dataset/metadata/lineage/). [measured] **Zero visual groups span
+two splits**, checked twice and re-checked by the dataset validator. True redundancy is 1.15x,
+not 3.44x. The original curation was sound. This claim never reached a report or a metric.
 
-**C-2. §3.1's rationale for experiment 2 is half wrong.**
-§3.1 and §1.2 present the filtered images as "annotation contamination" — mislabels. A visual
-audit of 30 flagged images shows the flagged set is roughly **half genuine mislabels** (an
-`open_eye` box drawn over a whole face, including two faces wearing sunglasses) and roughly
-**half legitimate eye close-up crops**, where a frame-filling box is *correct* because the
-image genuinely is an eye. The removal still stands, but the honest justification is
-**deployment relevance**, not error: a dashcam never sees a 640×640 single-eye crop, so
-neither population belongs in this dataset. Two different reasons, one filter. §1.2's width
+**C-2. The original rationale for experiment 2 (now section 1.3.1) was half wrong.**
+That section and 1.1.2 originally presented the filtered images as "annotation contamination" —
+mislabels. A visual audit of 30 flagged images shows the flagged set is roughly **half genuine
+mislabels** (an open_eye box drawn over a whole face, including two faces wearing sunglasses)
+and roughly **half legitimate eye close-up crops**, where a frame-filling box is *correct*
+because the image genuinely is an eye. The removal still stands, but the honest justification is
+**deployment relevance**, not error: a dashcam never sees a 640x640 single-eye crop, so neither
+population belongs in this dataset. Two different reasons, one filter. Section 1.1.2's width
 statistics are unaffected and remain correct as measured.
 
 **C-3. The grayscale/IR train-vs-test mismatch was sampling noise.**
@@ -66,859 +68,1027 @@ An early 250-image probe reported 11.2% grayscale/IR in train against 5.2% in te
 that up as a domain mismatch. [measured] The exhaustive count over all 18,447 images gives
 **6.0% train vs 5.7% test**. The splits are well matched. There is no mismatch to fix.
 
-**C-4. §5.3's "3.8% dark" figure is superseded, not wrong.**
-It was measured on the pre-consolidation dataset. [measured] On today's `dataset/`:
-859 of 18,447 images are `night_or_very_low_light` (4.7%) and 1,080 are grayscale/IR (5.9%).
-The conclusion of §5.3 is unchanged and if anything better supported: low-light driving remains
-untested.
+**C-4. The original "3.8% dark" figure (now section 1.7, item 3) is superseded, not wrong.**
+It was measured on the pre-consolidation dataset. [measured] On today's dataset: 859 of 18,447
+images are night_or_very_low_light (4.7%) and 1,080 are grayscale/IR (5.9%). The conclusion is
+unchanged and if anything better supported: low-light driving remains untested (section 1.7,
+item 3).
 
 One earlier error inside this document was already corrected in place on 2026-08-27: the
-epoch-52 metrics in §2.3 had been read off a shifted CSV column. The corrected values are
-P 0.514 / R 0.927 / mAP50 0.849 / mAP50-95 0.479 / fitness 0.516.
+epoch-52 metrics (now section 1.2.3) had been read off a shifted CSV column. The corrected
+values are P 0.514 / R 0.927 / mAP50 0.849 / mAP50-95 0.479 / fitness 0.516.
 
 ---
 
-## Chapter 1: The datasets and where they came from
+## Chapter 1: The Foundation Experiments (Exp 1 – Exp 3)
 
-Three classes throughout, in this order: `closed_eye` (0), `open_eye` (1), `yawning` (2).
+This chapter is the complete empirical record of the project's first phase: three
+training runs on the driver-fatigue detection problem, the datasets they used, and what
+each one proved or refuted. It is written to survive the deletion of the experiment
+directories themselves — every number a future reader could need is transcribed here.
 
-### 1.1 Dataset lineage
+**Phase verdict, stated up front.** Three experiments established a working
+architecture and a validated dataset, and closed off two hypotheses about the
+localisation ceiling. **Neither hypothesis held.** The project ends Chapter 1 with
+mAP50 ≈ 0.90, mAP50-95 ≈ 0.48 (ratio 0.54, where healthy is above 0.70), and the cause
+of that ceiling still unidentified. Experiment 2's best checkpoint remains the best
+model produced.
 
-There have been three datasets in this project's life. Only the last two exist on this machine.
+---
 
-**Dataset-Main** — the original. **Not present on this machine.** [measured] The path
-`C:\ssd projects\nano big\data` does not exist. Everything known about it comes from the header
-comment inside `dataset/data.yaml`, which this session did not write. [from record] That header
-states Dataset-Main is "UNTOUCHED, frozen, and remains the authoritative benchmark dataset", and
-that its test split contained **5,589 images**.
+### 1.1 Dataset foundations
 
-**Dataset-Curated** — what `dataset/` currently holds. [from record] Per the same header, it was
-derived from Dataset-Main by "near-duplicate collapse (clusters size>=3) and cross-split
-near-duplicate leakage resolution", reducing the test split to **2,873 of Dataset-Main's 5,589
-images**. The header carries an explicit warning that this folder's test split is a deduplicated
-*subset*, so results on it are not comparable to experiments run against Dataset-Main.
+Three classes throughout, in this index order: `closed_eye` (0), `open_eye` (1),
+`yawning` (2).
 
-[measured] Current contents of `dataset/`, counted directly:
+#### 1.1.1 Lineage
 
-| split | images | boxes |
-|---|---|---|
-| train | 22,215 | 30,424 |
-| val | 3,082 | 4,206 |
-| test | 2,873 | 3,981 |
+| name | images | role | status |
+|---|---:|---|---|
+| **Dataset-Main** | ~50,654 manifest rows | original aggregate from multiple sources | **gone** from this machine; never on it during this phase |
+| **Dataset-Curated** | 28,170 | near-duplicate collapse + cross-split leakage resolution of Dataset-Main | **deleted** 2026-08-29 after consolidation |
+| **`dataset/`** (validated) | **18,447** | the single canonical dataset from 2026-08-29 onward | **current** |
 
-Image counts from `ls`; box counts from the dataset scanner's own output during training and from
-`checkpoints/Expi-1-imagez-384/REPORTS EXPI-1/evaluation.txt`.
+Dataset-Main is not recoverable here. The only surviving record of it is
+`dataset/metadata/lineage/curated_dataset_manifest.csv` (50,654 rows), which is why that
+file was preserved rather than deleted during the consolidation.
 
-**dataset_clean** — built during Experiment 2. Covered in Chapter 3.
+#### 1.1.2 The annotation-convention defect (the 3–8× scale contradiction)
 
-### 1.2 The annotation-convention defect in Dataset-Curated
-
-[measured] This was found by measuring the width distribution of every box in `dataset/`. The
-distributions are **bimodal**: the same class name is used for boxes at two scales that differ by
-3–8×.
+[measured] Box-width distributions in Dataset-Curated are **bimodal**: the same class
+name was used for boxes at two scales differing by 3–8×.
 
 | class | total boxes | width > 0.4 (face-scale) | width ≤ 0.4 (object-scale) |
-|---|---|---|---|
-| closed_eye | 17,556 | 23.7% | 76.3% |
-| open_eye | 12,365 | 45.0% | 55.0% |
+|---|---:|---:|---:|
+| closed_eye | 17,556 | **23.7%** | 76.3% |
+| open_eye | 12,365 | **45.0%** | 55.0% |
 | yawning | 8,690 | 69.5% | 30.5% |
 
-[measured] Comparing images that carry one eye box against images that carry two, within a single
-class, the median box width is:
+[measured] Median box width, within one class, comparing images carrying one eye box
+against images carrying two:
 
 | class | 1-box images | 2-box images | ratio |
-|---|---|---|---|
-| closed_eye | 0.620 | 0.188 | 3.3× |
-| open_eye | 0.778 | 0.098 | 8.0× |
+|---|---:|---:|---:|
+| closed_eye | 0.620 | 0.188 | **3.3×** |
+| open_eye | 0.778 | 0.098 | **8.0×** |
 
-Two annotation conventions are mixed together under the same labels:
+Two conventions were mixed under identical labels:
 
-- **object-level** — one small box per eye. Sources include filenames matching
-  `closed_eye_#-jpg_face_#_jpg.*`, `dd_v#_closed-*`, `istockphoto-*`.
-- **face-level** — one large box over the whole face, labelled with the eye state it depicts.
-  Sources include filenames matching `s#_#_#_#_#_#_#_#_png.rf.*`.
+- **object-level** — one small box per eye (sources matching `closed_eye_#-jpg_face_#`,
+  `dd_v#_closed-*`, `istockphoto-*`)
+- **face-level** — one large box over the whole face, labelled with the eye state it
+  depicts (sources matching `s#_#_#_#_#_#_#_#_png.rf.*`)
 
-For `closed_eye` and `open_eye` this is a genuine contradiction. For `yawning` it is not — a yawn
-is inherently a face-scale event, and the large-box mode is the correct one for that class.
+For `closed_eye` / `open_eye` this is a genuine contradiction — the regressor was asked
+to cover widths from 0.05 to 1.0 under one class name, so it could never be tight at high
+IoU. For `yawning` it is **not** a contradiction: a yawn is inherently a face-scale event
+and the large-box mode is correct for that class.
 
-[measured] All images in both groups are 640×640, so the two conventions cannot be told apart by
-image size — everything was resized by Roboflow.
+[measured] All images in both groups are 640×640 — Roboflow resized everything — so the
+two conventions cannot be separated by image dimensions.
 
----
+> **See Chapter 0, C-2.** The framing of the removed images as *mislabels* is only about
+> half right. Roughly half are legitimate eye close-up crops, correctly annotated but
+> irrelevant to a dashcam. The filter is justified by **deployment relevance**, not error.
 
-## Chapter 2: Experiment 1 — the v2 model, how it works, what happened
+#### 1.1.3 The validated dataset
 
-Experiment folder `checkpoints/Expi-1-imagez-384/`.
-
-### 2.1 How the model works
-
-`src/v2/` — a custom detector, not Ultralytics. Read from source (`src/v2/models/`):
-
-**Backbone** (`MiniDarknetV2`) — stem `Conv(3→16, stride 2)`, then four stages, each a
-stride-2 `Conv` followed by a `C2f` block, with an `SPPF` at the end of stage 4. Scale `n` uses
-widths `(16, 32, 64, 128, 256)` and depths `(1, 2, 2, 1)`. Three feature maps leave the backbone:
-**P3 at stride 8, P4 at stride 16, P5 at stride 32**.
-
-**Neck** (`MiniPANv2`) — a bidirectional feature pyramid. The FPN path upsamples P5 and
-concatenates it into P4, then upsamples that into P3, carrying semantic context down to fine
-resolution. The PAN path then runs stride-2 convolutions back up, concatenating at each level,
-carrying spatial precision back up. Output is three fused maps at the same three strides.
-
-**Head** (`MiniHeadV2`) — decoupled, anchor-free, and notable for three deliberate omissions:
-
-- **No DFL.** `reg_max = 1`: the box branch emits **four raw scalars** per location (left, top,
-  right, bottom distances in feature-cell units), trained with CIoU + L1. This is the weakest box
-  regression option available, and Chapter 5 identifies it as the current accuracy ceiling.
-- **No objectness branch.** The class score doubles as confidence (YOLOv8 convention onward).
-- **Dual branch, one survives export.** A one-to-many branch trains alongside a one-to-one
-  branch; only the one-to-one branch is kept at export, so **inference needs no NMS**
-  (YOLOv10/YOLO26 style). The class branch uses depthwise-separable convolutions.
-
-[measured] From the training banner: **2,501,882 parameters, 2.04 GFLOPs at 384², 10.01 MB fp32.**
-
-### 2.2 Configuration
-
-[from record] `checkpoints/Expi-1-imagez-384/REPORTS EXPI-1/args.yaml` and `hyp.yaml`:
-
-scale `n` · imgsz 384 (multi-scale 320–512) · batch 64 · 300 epochs · optimizer `musgd` ·
-seed 0 · patience 60 · AMP on · lr0 0.005 · lrf 0.05 · momentum 0.937 · weight_decay 0.0005 ·
-warmup 3 epochs · EMA decay 0.9999 · loss weights box 7.5 / cls 0.7 / l1 1.0 · TAL topk 10,
-alpha 0.5, beta 6.0, small-object TAL on · ProgLoss alpha 0.8 → 0.1.
-
-Augmentation: mosaic 0.85 (closed for the final 20 epochs) · mixup 0.1 · scale 0.5 · degrees 10 ·
-shear 2 · translate 0.1 · perspective 0.0005 · fliplr 0.5 · hsv 0.015/0.7/0.5 · grayscale 0.1 ·
-blur 0.05 · random erasing 0.25.
-
-### 2.3 What happened during the run
-
-The run was **interrupted once, and it was not a crash.** [measured] Windows Event Log shows
-`MoUsoCoreWorker.exe` initiating a restart at 21:45 on 2026-08-24 with reason
-"Operating System: Service pack (Planned)", followed by `TrustedInstaller.exe` at 21:50 with
-"Operating System: Upgrade (Planned)". Windows Update forced a reboot mid-training.
-
-[measured] State at interruption, from `results.csv` epoch 52: **P 0.5140 · R 0.9275 ·
-mAP50 0.8487 · mAP50-95 0.4794** (fitness 0.5164).
-
-Training was resumed from `weights/last.pt` at epoch 53 and ran to completion at epoch 300.
-[from record] The resumed leg took **12.12 h** for 248 epochs at 347 iterations/epoch. The wall
-time of the first leg (epochs 1–52) was never timestamped and **cannot be recovered** — total
-run time for experiment 1 is therefore not known exactly.
-
-[measured] `results.csv` contains 300 epoch rows. Best checkpoint at **epoch 294**,
-best_fitness **0.5730903592115826** (value as stored in `best.pt`).
-
-### 2.4 Results
-
-[from record] `checkpoints/Expi-1-imagez-384/REPORTS EXPI-1/evaluation.txt` — measured on Dataset-Curated:
-
-**val split** (3,082 images / 4,206 boxes) · 1.11 ms/img (899 img/s)
-
-| class | P | R | mAP50 | mAP50-95 |
-|---|---|---|---|---|
-| all | 0.644 | 0.950 | 0.907 | 0.536 |
-| closed_eye | 0.581 | 0.935 | 0.888 | 0.439 |
-| open_eye | 0.537 | 0.942 | 0.865 | 0.531 |
-| yawning | 0.815 | 0.974 | 0.966 | 0.638 |
-
-**test split** (2,873 images / 3,981 boxes) · 1.05 ms/img (956 img/s)
-
-| class | P | R | mAP50 | mAP50-95 |
-|---|---|---|---|---|
-| all | 0.653 | 0.944 | 0.907 | 0.541 |
-| closed_eye | 0.588 | 0.939 | 0.880 | 0.429 |
-| open_eye | 0.579 | 0.925 | 0.881 | 0.543 |
-| yawning | 0.793 | 0.968 | 0.961 | 0.650 |
-
-[measured] Over the final 50 epochs the model gained **+0.0036 mAP50 and +0.0055 mAP50-95** — it
-had converged. A longer schedule would not have helped.
-
-**On the reported precision of 0.653.** This is precision measured at confidence 0.1, which is the
-convention this codebase's metric code uses. It is not the precision you would deploy at.
-[measured] From the F1-confidence curve, F1 peaks at about **0.84 at confidence ≈ 0.40**, and the
-PR curve holds precision above 0.9 out to recall 0.75. The low headline precision number is a
-reporting-threshold artifact, not a broken model.
-
-### 2.5 Demo video
-
-[from record] `checkpoints/Expi-1-imagez-384/REPORTS EXPI-1/demo_video/analysis.txt` — 2,639 frames of
-`15-MaleGlasses.mp4` at conf 0.25: **12.23 ms/frame (81.8 FPS)**. Detections: open_eye 5,350
-(86.78%), closed_eye 553 (8.97%), yawning 262 (4.25%).
-
----
-
-## Chapter 3: Experiment 2 — why a second dataset was built, and did it help
-
-Experiment folder `checkpoints/Expi-2-imagez-384/`.
-
-### 3.1 Why
-
-Experiment 1 produced mAP50 0.907 but mAP50-95 only 0.541 — a ratio of 0.60, where a healthy
-detector sits above 0.70. Investigating that gap surfaced the annotation-convention defect
-documented in §1.2: the box regressor was being asked to cover widths from 0.05 to 1.0 under the
-same class name, so it could never be tight at high IoU.
-
-**The hypothesis under test:** remove the contradiction and accuracy rises, most of all for
-`open_eye`, the most contaminated class at 45.0%.
-
-> ⚠️ **See Chapter 0, C-2.** The framing in this section — that the removed images are
-> mislabels — is only about half true. Roughly half are legitimate eye close-up crops that
-> are correctly annotated but irrelevant to a dashcam. The filter and its results below are
-> unaffected; the *reason* is deployment relevance, not error.
-
-### 3.2 What was built
-
-`src/v2/tools/make_clean_dataset.py` → `dataset_clean/`. It drops every **image** that contains a
-face-scale eye box (width > 0.4). It drops the whole image rather than the offending box, because
-deleting the box alone would turn a real eye into unlabelled background and actively train the
-model to miss it. Files are hardlinked, so the copy costs no additional disk.
-
-[measured] Result:
-
-| split | images kept | closed_eye | open_eye | yawning |
-|---|---|---|---|---|
-| train | 14,440 | 10,435 | 5,418 | 6,779 |
-| val | 2,101 | 1,551 | 663 | 1,009 |
-| test | 1,904 | 1,391 | 716 | 902 |
-
-**Zero yawning boxes were removed** at any split — the filter targets eye classes only.
-[measured] After filtering, face-scale eye boxes are **0.0%** of the eye boxes, down from 23.7%
-and 45.0%.
-
-### 3.3 What changed in the model
-
-**Nothing.** Exactly one variable changed between experiments 1 and 2: the dataset. Scale `n`,
-imgsz 384, batch 64, 300 epochs, `musgd`, seed 0, patience 60, AMP, and the entire `hyp.yaml`
-were held identical. DFL was deliberately *not* introduced here, so that its effect can be
-measured separately in a later experiment rather than being confounded with the dataset fix.
-
-### 3.4 How the run went
-
-[measured] Completed all 300 epochs in one session with no interruption. **6.09 h**, 225
-iterations/epoch. Best checkpoint at **epoch 283**, best_fitness **0.5241072334190018**.
-Over the final 50 epochs: **+0.0047 mAP50, +0.0024 mAP50-95** — converged again.
-
-### 3.5 Results, and the comparison that is actually valid
-
-Experiment 2's val and test splits are *subsets* of experiment 1's. **Comparing exp 1's 0.907 on
-the mixed test split against exp 2's 0.900 on the clean test split is not a valid comparison** —
-different images, different difficulty. To make a valid comparison, experiment 1's checkpoint was
-re-evaluated on experiment 2's clean test split.
-
-[measured] Both models, same clean test split (1,904 images / 3,009 boxes):
-
-| metric | exp 1 | exp 2 | Δ |
-|---|---|---|---|
-| P | 0.642 | 0.664 | +0.022 |
-| R | 0.926 | 0.940 | +0.014 |
-| mAP50 | 0.870 | 0.900 | **+0.030** |
-| mAP50-95 | 0.473 | 0.483 | +0.010 |
-
-Per class, same split:
-
-| class | exp 1 mAP50 | exp 2 mAP50 | Δ | exp 1 mAP50-95 | exp 2 mAP50-95 | Δ |
-|---|---|---|---|---|---|---|
-| closed_eye | 0.885 | 0.900 | +0.015 | 0.412 | 0.415 | +0.003 |
-| open_eye | 0.763 | 0.836 | **+0.073** | 0.355 | 0.382 | +0.027 |
-| yawning | 0.962 | 0.964 | +0.002 | 0.651 | 0.652 | +0.001 |
-
-Experiment 2's own full evaluation is in `checkpoints/Expi-2-imagez-384/REPORTS EXPI-2/evaluation.txt`; on the
-clean **val** split it scores P 0.657 / R 0.942 / mAP50 0.891 / mAP50-95 0.483.
-
-### 3.6 Did it help? Partly — and the headline prediction was wrong
-
-**What the result confirms.** The gain lands exactly where the diagnosis predicted. `open_eye`
-was the most contaminated class and gained by far the most (+0.073 mAP50). `yawning` had zero
-boxes removed and moved +0.002 — a control case behaving as a control should. Precision and
-recall both rose. This is a controlled result, not noise.
-
-**What the result refutes.** After Experiment 1 it was predicted that mAP50-95 would "move
-substantially". **It did not.** It moved +0.010, and the mAP50/mAP50-95 ratio is essentially
-unchanged (0.544 → 0.537). That prediction was wrong. The annotation-convention defect was
-capping *detection and classification*, not *localisation*.
-
-**Worth stating plainly:** in absolute terms the headline mAP50 went from 0.907 (exp 1, mixed
-split) to 0.900 (exp 2, clean split). Those numbers are not comparable, but anyone reading the two
-report folders side by side will see two numbers near 0.90 and reasonably ask what was gained. The
-honest answer is: **+0.030 mAP50 on identical data, concentrated in one class, with the
-localisation problem still unsolved.**
-
-### 3.7 Demo video
-
-[from record] `checkpoints/Expi-2-imagez-384/REPORTS EXPI-2/demo_video/analysis.txt` — same 2,639 frames:
-**5.81 ms/frame (172.0 FPS)**. Detections: open_eye 4,958 (87.96%), closed_eye 373 (6.62%),
-yawning 306 (5.43%).
-
-**Do not read the speed change as a model improvement.** Experiment 1 measured 12.23 ms/frame on
-an *identical* architecture, parameter count and input size. The difference is machine load at
-measurement time — experiment 1's video was rendered while other applications were running. A
-back-to-back re-benchmark on an idle machine is required before quoting any speedup.
-
----
-
-## Chapter 4: Direct answers
-
-### 4.1 Why was experiment 2 trained from scratch instead of fine-tuning exp 1's `best.pt`?
-
-**It was a deliberate choice, made to keep the result interpretable.**
-
-[measured] Experiment 2 started from random initialisation. The proof is in its own log: epoch 1
-reported mAP50 = 0.0003. A fine-tune from experiment 1's weights would have started near 0.85.
-No `--resume` flag and no pretrained weights were passed:
+Built by `src/v2/tools/build_final_dataset.py`, deterministic (seed 0), hardlinked, never
+mutating its source. [measured] From `dataset/metadata/build_info.json`:
 
 ```
-python src/v2/train.py --data dataset_clean/data.yaml --scale n --imgsz 384 \
-    --batch 64 --epochs 300 --workers 6 --seed 0 --name v2_n384_clean
+images_inspected  = 28,170        tau  = 0.40        seed = 0
+images_kept       = 18,447
+removed_by_reason = {'C': 9,723}  -- 0 removed for corruption or invalid labels
+test_files_locked = 3,808
 ```
 
-**The reasoning.** Experiment 2 exists to answer one question: *does removing the annotation
-contradiction improve accuracy?* Fine-tuning from experiment 1 would have made that question
-unanswerable, because experiment 1's weights were themselves fitted to the contaminated data —
-including whatever the model learned about predicting big face-scale boxes. Any gain could then be
-argued to come from the extra 300 epochs of training rather than from the data change. Starting
-fresh means one variable moved, so the +0.030 is attributable.
+| split | images | boxes | closed_eye | open_eye | yawning |
+|---|---:|---:|---:|---:|---:|
+| train | 14,442 | 22,632 | 10,435 | 5,418 | 6,779 |
+| val | 2,101 | 3,223 | 1,551 | 663 | 1,009 |
+| test | 1,904 | 3,009 | 1,391 | 716 | 902 |
+| **total** | **18,447** | **28,864** | **13,377** | **6,797** | **8,690** |
 
-**What it costs.** Fine-tuning would have been faster and might have reached a higher final
-number. **That has not been tested.** It remains a genuine open option, and it is the natural
-approach for the domain-gap problem in §5.2 — initialise from a trained checkpoint and fine-tune
-on footage that resembles deployment.
-
-### 4.2 Why is `best.pt` 29 MB when the model should be 5–10 MB?
-
-**Because `best.pt` is a training checkpoint, not a deployment artifact. It contains three copies
-of the network.** The model itself is exactly the size expected.
-
-[measured] Decomposing `checkpoints/Expi-2-imagez-384/weights/best.pt` (30,690,602 bytes = 30.69 MB):
-
-| component | size | what it is |
-|---|---|---|
-| `model` | 10.33 MB | raw training weights |
-| `ema` | 10.33 MB | EMA weights — **this is the one used for inference** |
-| `optimizer` | 10.08 MB | MuSGD momentum buffers, needed only to resume training |
-| everything else | < 0.01 MB | epoch, fitness, hyp, args, class names |
-| **total** | **30.75 MB** | |
-
-Only the EMA copy is needed to run the model. The optimizer state exists purely so that
-`--resume` works — which is exactly what saved experiment 1 after the Windows Update reboot.
-
-[measured] Stripping down to a deployable model, step by step:
-
-| artifact | size |
-|---|---|
-| EMA weights, fp32 | 10.33 MB |
-| minus 418 stray `thop` profiling buffers (see §5.4) | 10.22 MB |
-| minus the one-to-many training branch (120 tensors, 123,431 params) | 9.69 MB |
-| **ONNX export, fp32** — `best_384.onnx` | **9.64 MB** |
-| **ONNX export, fp16** — `--half` | **4.86 MB** |
-
-[measured] The exported model reports **2,375,157 parameters, 2.00 GFLOPs at 384², 9.50 MB fp32**
-after the training-only branch is discarded.
-
-**So the target is already met.** 9.64 MB fp32 or 4.86 MB fp16 sits inside the 5–10 MB range, and
-the model is a genuine YOLO26-nano-class network at 2.4 M parameters. Produce it with:
-
-```
-python -m src.v2.export --weights checkpoints/Expi-2-imagez-384/weights/best.pt --imgsz 384        # 9.64 MB
-python -m src.v2.export --weights checkpoints/Expi-2-imagez-384/weights/best.pt --imgsz 384 --half # 4.86 MB
-```
-
-**One caveat, stated because it matters.** The training banner's "int8 ~2.50 MB" figure is an
-arithmetic estimate (parameter count ÷ 4), **not a measured quantised export**. No int8 model has
-been built or evaluated on this project. Do not quote 2.5 MB as an achieved result.
-
----
-
-## Chapter 5: What is still wrong, and what to do next
-
-### 5.1 Localisation is the remaining accuracy ceiling
-
-mAP50 0.900 against mAP50-95 0.483 is a ratio of 0.54. Experiment 2 showed this is not caused by
-the annotation conventions. The most likely remaining cause is the head: `reg_max = 1`, four raw
-scalars, no DFL (§2.1). **Next experiment: set `reg_max` to 8 or 16, add the distribution focal
-loss term, change nothing else.**
-
-> **Status update (2026-08-29): this is now implemented.** `reg_max = 16` with a DFL loss term
-> is the default head. See Chapter 7 for what was built, what it cost, and the two caveats
-> that came with it. The experiment itself has **not been run**.
-
-For context, and with the caveat that **this is a different dataset and not a valid direct
-comparison**: published driver-fatigue work using an improved YOLOv8 (YOLO-FDCL) reports 94.2%
-mAP50-95 on YAWDD. This project is at 48.3%. A gap that size is unlikely to be explained by
-architecture alone and probably also reflects box tightness and consistency in the labels — but
-**that has not been verified here**, and verifying it needs a hand-audit of a sample of boxes.
-
-### 5.2 There is a measured train/deploy domain gap
-
-[measured] Confidence distributions, experiment 2's model, conf threshold 0.25 — 600 sampled test
-stills against every third frame of the demo video:
-
-| source | detections | mean conf | median | > 0.7 | > 0.9 |
-|---|---|---|---|---|---|
-| test stills | 1,108 | 0.645 | 0.720 | 52.4% | 11.4% |
-| demo video | 1,886 | 0.585 | 0.647 | 36.7% | **0.0%** |
-
-Not one detection in 1,886 video frames exceeds 0.9 confidence, against 11.4% on stills. The model
-is never confident on real footage.
-
-[measured] Lighting is **not** the cause for this clip. Mean-grey brightness: training set p5 65.0
-/ median 116.1 / p95 196.8; demo video p5 96.2 / median 102.7 / p95 110.8. The video sits well
-inside the training range. The remaining differences are motion blur, video compression,
-continuous capture versus curated stills, and the subject's glasses.
-
-### 5.3 Night and low-light driving is untested
-
-[measured] Only **3.8%** of training images are dark (mean grey < 60). For the variable-lighting
-in-car deployment this project targets, that is the entire basis the model has. No result in this
-document tests it, because the demo clip is daylight.
-
-> **Superseded figure — see Chapter 0, C-4.** That 3.8% was measured on the pre-consolidation
-> dataset. On today's `dataset/`: 859 of 18,447 images (4.7%) are `night_or_very_low_light`
-> and 1,080 (5.9%) are grayscale/IR. The conclusion stands unchanged.
-
-### 5.4 Bugs found and fixed this session
-
-- `src/v2/val.py` — `load_state_dict` was strict, and every checkpoint carries 418 stray
-  `total_ops` / `total_params` buffers left behind by `thop` profiling in `bench.py`. Loading any
-  checkpoint raised `RuntimeError`. Fixed with `strict=False`; those keys are not weights.
-- `src/v2/export.py` — the identical bug, which blocked ONNX export entirely. Same fix.
-- `src/v2/report.py` — `plot_curves` indexed a name list with a `numpy.float32`, raising
-  `TypeError`. Fixed with an `int` cast.
-
-### 5.5 Latency headroom is the most underused asset here
-
-[measured] 172 FPS on the demo clip against a 30 FPS requirement — roughly 5× headroom. `--scale s`
-or `--imgsz 512` are affordable right now. Both should wait until §5.1 is resolved, so that a
-larger model is not simply fitting label noise harder.
-
----
-
-## Chapter 6: The dataset audit and the consolidation to one `dataset/`
-
-Dated 2026-08-29. Goal: stop carrying three overlapping dataset directories and produce one
-audited, validated, reproducible dataset that every future experiment is scored against.
-
-### 6.1 What was there before
-
-| directory | images | what it was |
-|---|---|---|
-| `dataset/` | 28,170 | Dataset-Curated. Experiment 1's data. Mixed annotation conventions. |
-| `dataset_clean/` | 18,445 | The §3.2 filtered subset. Experiment 2's data. |
-| `dataset_final_v1/` | 18,447 | Built during this audit. |
-
-### 6.2 Choosing the threshold τ, on evidence rather than a convenient histogram
-
-The filter rule is: drop the whole **image** if any eye-class box exceeds normalised width τ.
-§3.2 used τ = 0.4 without justifying the number. `src/v2/tools/threshold_study.py` re-derived
-it from three independent kinds of evidence and wrote `dataset/metadata/analysis/threshold_study/`.
-
-[measured] **Statistical** — the two populations are cleanly separated, and not only by width:
+**The τ = 0.40 threshold, justified three ways.** [measured] The two populations separate
+on more than width — median aspect ratio above the line is *exactly* 1.00 (a square box,
+i.e. a frame-filling annotation), and box **area** separates them by roughly **20×**:
 
 | class | band | n | med width | med area | med aspect |
-|---|---|---|---|---|---|
+|---|---|---:|---:|---:|---:|
 | closed_eye | above 0.40 | 4,155 | 0.703 | 0.4907 | **1.00** |
 | closed_eye | below 0.40 | 13,401 | 0.184 | 0.0250 | 1.28 |
 | open_eye | above 0.40 | 5,568 | 0.808 | 0.5452 | **1.00** |
 | open_eye | below 0.40 | 6,797 | 0.097 | 0.0077 | 1.05 |
 
-Median aspect ratio above the line is **exactly 1.00** for both classes — a square box, which
-is what a frame-filling annotation on a square image looks like. Box *area* separates the two
-populations by roughly **20×** (0.49–0.55 against 0.008–0.025), far more sharply than width
-alone. This matters because the rule was originally defined on width only.
-
-[measured] **Sensitivity** — all five candidates were measured, not just the chosen one:
+[measured] Sensitivity across all five candidate thresholds:
 
 | τ | images removed | images remaining | closed removed | open removed | yawning left |
-|---|---|---|---|---|---|
+|---|---:|---:|---:|---:|---:|
 | 0.25 | 11,925 | 16,243 | 7,601 | 5,855 | 8,690 |
 | 0.30 | 10,705 | 17,463 | 5,436 | 5,776 | 8,690 |
 | 0.35 | 10,183 | 17,985 | 4,650 | 5,688 | 8,690 |
 | **0.40** | **9,723** | **18,445** | **4,179** | **5,568** | **8,690** |
 | 0.45 | 9,221 | 18,947 | 3,823 | 5,399 | 8,690 |
 
-**`yawning` loses exactly zero boxes at every τ**, which is the control this rule needed: a
-yawn is legitimately face-scale, and no setting of τ touches it.
+**`yawning` loses exactly zero boxes at every τ** — the control this rule needed. Visual
+inspection: the 0.40–0.50 band is ~15 of 16 eye close-up crops; the 0.30–0.40 band is
+mostly correct eye-level boxes on visible faces.
 
-**Visual** — sample grids were rendered either side of the line. The 0.40–0.50 band is roughly
-15 of 16 eye close-up crops; the 0.30–0.40 band is mostly correct eye-level boxes on visible
-faces. That is where the line belongs.
+**What could not be automated, and was therefore not faked.** The two populations above τ —
+legitimate eye crops and genuine face-scale mislabels — could not be told apart automatically
+on this machine. Three attempts failed: **Haar cascades** (4% detection rate; misses rotated,
+dark and occluded faces), **skin-tone fraction** (fails outright — the `session` source scores
+0.000 because it is grayscale/IR, not because it is a crop), and **mediapipe** (segfaults on a
+protobuf mismatch, `'MessageFactory' object has no attribute 'GetPrototype'`; no pretrained
+face detector was cached and the network was restricted). Both populations were therefore
+removed together, for two stated reasons, and **no image was given an invented label**.
 
-### 6.3 What could not be automated, and was therefore not faked
+**Before the consolidation, three overlapping directories existed:**
 
-The two populations above τ — legitimate eye crops and genuine face-scale mislabels — cannot be
-told apart automatically on this machine. Three attempts failed:
+| directory | images | role |
+|---|---:|---|
+| `dataset/` (old) | 28,170 | Dataset-Curated — experiment 1's data, mixed conventions |
+| `dataset_clean/` | 18,445 | the §1.1.2 filtered subset — experiment 2's data |
+| `dataset_final_v1/` | 18,447 | built during this audit |
 
-- **Haar cascades** — 4% detection rate; misses rotated, dark and occluded faces.
-- **Skin-tone fraction** — fails outright; the `session` source scores 0.000 because it is
-  grayscale/IR, not because it is a crop.
-- **mediapipe** — segfaults on a protobuf mismatch (`MessageFactory' object has no attribute
-  'GetPrototype'`). No pretrained face detector is cached and the network is restricted.
+#### 1.1.4 The 14 validation gates
 
-Both populations are therefore removed together, for two stated reasons, and **no image was
-given an invented label**. That decision is recorded rather than hidden because it is the one
-place in this build where a better tool would have produced a better dataset.
+`src/v2/tools/validate_dataset.py` deliberately does **not** import the builder — a
+validator sharing the builder's logic inherits the builder's bugs. Everything is
+re-derived from files on disk. [measured] **Status: PASS. Baseline readiness: READY.**
 
-### 6.4 The build, and the honest headline
+| # | gate | result |
+|---|---|---|
+| 1 | YAML consistency | PASS — nc=3, names correct, no absolute `path:` key |
+| 2 | class mapping | PASS — 0=closed_eye, 1=open_eye, 2=yawning |
+| 3 | image integrity | PASS — 18,447 decoded, **0 corrupt** |
+| 4 | label integrity | PASS — 28,864 boxes, **0 invalid** |
+| 5 | split integrity | PASS — 0 orphan labels, 0 orphan images |
+| 6 | duplicate integrity | PASS — 0 stems in more than one split |
+| 7 | cross-split near-duplicate leakage | PASS — **0 visual groups span a split** |
+| 8 | near-duplicate accounting | PASS — 4,880 flagged `intra_split_near_duplicate`, retained by design |
+| 9 | manifest consistency | PASS — counts match disk |
+| 10 | annotation consistency | PASS — 0 kept images exceed τ |
+| 11 | **test set lock** | PASS — **3,808 SHA-256 hashes, 0 mismatched** |
+| 12 | reproducibility | PASS — build_info.json + 5 metadata CSVs present |
+| 13 | deployment-domain audit | PASS — lighting and grayscale/IR distribution recorded |
+| 14 | final dataset report | PASS — `DATASET_REPORT.md` present |
 
-`src/v2/tools/build_final_dataset.py`, deterministic (seed 0), hardlinks, never mutates its
-source. [measured] From `dataset/metadata/build_info.json`:
+Two items are marked `[DOCUMENTED LIMITATION]` and deliberately **not** PASS:
 
-```
-images_inspected  = 28,170        tau  = 0.4        seed = 0
-images_kept       = 18,447
-removed_by_reason = {'C': 9,723}  -- 0 removed for corruption or invalid labels
-test_files_locked = 3,808
-```
+1. **Subject/video-disjoint split cannot be established.** `session_id` is empty for all
+   50,654 lineage rows; `subject_id` is unknown for 18,447 of 18,447 images. The same
+   person may appear in train and test. The splits are near-duplicate-disjoint, which is
+   a strictly weaker guarantee. **Every metric in this chapter carries that caveat.**
+2. **Glasses and head-pose coverage is unknown.** No source carries per-image metadata
+   for either; reported as unknown rather than estimated.
 
-Splits were **inherited unchanged**, not recomputed: the existing assignment was already
-verified leakage-free (Chapter 0, C-1) and reshuffling would have destroyed a verified property
-to gain nothing. Intra-split near-duplicates were **retained** — 4,880 images flagged
-`intra_split_near_duplicate` in the manifest. They are redundancy, not leakage.
+**Test-set lock.** The 3,808 hashes (1,904 images + 1,904 labels) in
+`dataset/metadata/test_set_lock.sha256` were re-verified after the project moved drives
+*and* after the `dataset_final_v1` → `dataset` rename: **0 mismatches both times**. Any
+future claim that a model was scored on "the same test set" is checkable against that
+file, not taken on trust.
 
-The result differs from `dataset_clean` by **exactly two images**: zero-box background negatives
-(`yawn_new_1229_*`) that the older builder silently skipped and this one deliberately keeps,
-because a model with P 0.66 benefits from negatives. So, stated plainly rather than dressed up:
+[measured] Deployment-domain distribution: `normal_daylight` 11,312 · `low_light` 5,053 ·
+`bright_or_backlit` 1,223 · `night_or_very_low_light` 859 (4.7%) · grayscale/IR 1,080
+(5.9%, split as 6.0% train vs 5.7% test — well matched, see Chapter 0 C-3).
 
-> **The image selection is equivalent to `dataset_clean`; the improvement is the reproducible
-> curation, validation, metadata, and documented rationale.**
+#### 1.1.5 The consolidation — three directories to one, 2026-08-29
 
-That sentence is in `dataset/DATASET_REPORT.md` verbatim. This build is not a data improvement
-and is not presented as one.
-
-### 6.5 Validation
-
-`src/v2/tools/validate_dataset.py` deliberately does **not** import the builder — a validator
-that shares the builder's logic inherits the builder's bugs. Everything is re-derived from
-files on disk, with the manifest used only as a cross-check target.
-
-[measured] **Status: PASS. Baseline readiness: READY.** 14 gates pass — YAML consistency, class
-mapping, image integrity (18,447 decoded, 0 corrupt), label integrity (28,864 boxes, 0 invalid),
-split integrity (0 orphans), duplicate integrity, cross-split near-duplicate leakage = 0,
-near-duplicate accounting, manifest consistency, annotation consistency (0 kept images exceed
-τ), test set lock (3,808 SHA-256 hashes, 0 mismatched), reproducibility, deployment-domain
-audit, dataset report present.
-
-Two items are marked `[DOCUMENTED LIMITATION]` and deliberately **not** `[PASS]`:
-
-1. **Subject/video-disjoint split cannot be established.** `session_id` is empty for all 50,654
-   lineage rows; `subject_id` is unknown for 18,447 of 18,447 images. The same person may appear
-   in train and test. The splits are near-duplicate-disjoint, which is a weaker guarantee.
-   Every metric in this project should be read with that qualification.
-2. **Glasses and head-pose coverage is unknown.** No source carries per-image metadata for
-   either, so it is reported as unknown rather than estimated.
-
-Six further limitations are enumerated in `dataset/DATASET_REPORT.md`.
-
-### 6.6 The consolidation
-
-Performed after validation passed, on explicit confirmation, never before.
-
-- `dataset/VIDEO FOR TEST/` → moved into the surviving dataset first, so `report.py` and
-  `hud.py` keep working.
-- Lineage preserved: `curated_dataset_manifest.csv` (50,654 rows), `EDA/`,
-  `duplicate_report.csv`, `quality_report.csv`, `class_statistics.csv`,
-  `source_statistics.csv`, `dataset_summary.txt`, and the old `data.yaml` (as
-  `source_data.yaml`) → `dataset/metadata/lineage/`. Without these the build would no longer
-  be reproducible or auditable.
-- Old `dataset/` and `dataset_clean/` deleted; `dataset_final_v1/` renamed to `dataset/`.
+Performed only after validation passed, on explicit confirmation, never before. `dataset/VIDEO
+FOR TEST/` was moved into the surviving dataset first so `report.py` and `hud.py` kept
+working; lineage was preserved into `dataset/metadata/lineage/` (`curated_dataset_manifest.csv`
+50,654 rows, `EDA/`, `duplicate_report.csv`, `quality_report.csv`, `class_statistics.csv`,
+`source_statistics.csv`, `dataset_summary.txt`, and the old `data.yaml` renamed
+`source_data.yaml`) — without these the build would no longer be reproducible or auditable.
+Old `dataset/` and `dataset_clean/` were then deleted and `dataset_final_v1/` renamed to
+`dataset/`.
 
 [measured] The three directories were hardlinked to one another, so deleting two only dropped
 link counts — a probe file went from `nlink=3` to `nlink=1` with content intact, confirmed by
-re-running the full 3,808-hash test-set lock afterwards with **0 mismatches**. The validator
-was re-run against the renamed directory: still PASS, still READY.
+re-running the full 3,808-hash test-set lock afterward with **0 mismatches**. The validator was
+re-run against the renamed directory: still PASS, still READY.
 
-### 6.7 Consequence for the numbers already in this document
-
-Experiments 1 and 2 were scored on split directories that no longer exist. Today's `dataset/`
-test split **is** experiment 2's test split (they differ only by two *train* images), so
-**exp 2's numbers remain directly comparable** to anything scored on `dataset/` now.
-**Experiment 1's do not** — it was scored on the larger contaminated split. To compare exp 1
-against anything current, re-run `src/v2/val.py` against `dataset/data.yaml`. Its own §2.4
-numbers stay in this document as the historical record of that run, correctly labelled.
+**Consequence for the numbers in this chapter:** today's `dataset/` test split **is**
+experiment 2's test split (differing only by two *train* images), so exp 2's and exp 3's
+numbers are directly comparable to anything scored on `dataset/` now. Experiment 1's are not
+— it was scored on the larger, now-deleted, contaminated split — which is why §1.3.5 exists.
 
 ---
 
-## Chapter 7: Experiment 3 — the DFL head (code complete, run not started)
+### 1.2 Experiment 1 — Baseline
 
-Dated 2026-08-29. **No training run has happened.** Everything below is either a code change
-or a measurement of that code. No accuracy claim is made anywhere in this chapter.
+**Folder:** `checkpoints/Expi-1-imagez-384/` · **Dataset:** Dataset-Curated (28,170 imgs)
 
-### 7.1 The problem being attacked
+#### 1.2.1 Architecture
 
-mAP50 0.900 against mAP50-95 0.483 is a ratio of 0.54; healthy is above 0.70. Experiment 2
-eliminated annotation convention as the cause (§3.6). The head was the remaining suspect: it
-regressed **four raw scalars** per location (`reg_max = 1`) under CIoU + L1 — the weakest box
-representation available. mAP50-95 averages IoU thresholds up to 0.95, so it is precisely the
-metric a coarse box representation caps.
+MiniYOLO-v2, built from scratch (not Ultralytics). Scale `n`.
 
-### 7.2 What was changed
+| component | detail |
+|---|---|
+| Backbone | `MiniDarknetV2` — stem Conv(3→16, s2), 4 stages of Conv(s2)+C2f, SPPF. Widths (16,32,64,128,256), depths (1,2,2,1). Outputs P3/8, P4/16, P5/32 |
+| Neck | `MiniPANv2` — FPN top-down (upsample+concat), then PAN bottom-up (stride-2 conv+concat) |
+| Head | `DualDetect` — decoupled, anchor-free, **DFL-free (`reg_max = 1`)**: 4 raw ltrb scalars per location. **No objectness branch** (class score doubles as confidence). Class branch uses depthwise-separable convs |
+| Dual branch | one2many (training richness) + one2one (**NMS-free** inference). Only one2one survives export, so inference cost equals a single head |
+| Loss | CIoU + L1 (box) · BCE against task-aligned soft targets (cls) |
+| Assignment | Task-aligned assigner + **STAL** (small-target-aware, `stal_min_size=8.0`) |
+| Schedule | **ProgLoss** — one2many weight α annealed 0.8 → 0.1 across the run |
+| Optimizer | **MuSGD** (`muon_ratio = 0.5`) |
+| Size | 2,501,882 params train / 2,375,157 exported · 2.00 GFLOPs @384 · 9.50 MB fp32 |
 
-- **`src/v2/models/head.py`** — new `DFL` module: each ltrb side is predicted as a softmax over
-  `reg_max` integer bins and integrated back to a scalar by a **frozen 1×1 convolution whose
-  weights are `[0, 1, ..., reg_max-1]`** — literally the expectation of the distribution. `cv2`
-  now emits `4 * reg_max` channels instead of 4.
-- **`src/v2/losses/loss.py`** — adds `L_dfl`: the linear interpolation of the cross-entropy
-  against the two integer bins straddling each continuous target. A target of 7.3 asks for 70%
-  of the mass on bin 7 and 30% on bin 8. CIoU supervises the decoded box; DFL supervises the
-  shape of the distribution behind it.
-- **`src/v2/cfg/hyp.yaml`** — new gain `dfl: 1.5` (the YOLOv8/v11 value; not tuned here).
-- **`--reg-max`** is a training flag and its value is written into every checkpoint.
+This is the YOLO26 recipe (DFL-free + MuSGD + STAL + ProgLoss) implemented in full.
 
-**CIoU and L1 are unchanged and both still present.** That is deliberate: it keeps experiment 3
-to a single variable against experiment 2.
+#### 1.2.2 Configuration
 
-### 7.3 Backward compatibility, and why it was necessary
+```
+scale n | imgsz 384 (multi-scale 320-512) | batch 64 | epochs 300
+optimizer musgd | seed 0 | patience 60 | amp true | workers 6
+val_conf 0.001 | val_iou 0.7 | max_det 300 | e2e (NMS-free) validation
+device: NVIDIA RTX 2000 Ada Generation, 16 GB
+```
 
-`reg_max = 1` still builds the original head. [measured] Parameter counts are identical to
-before the change: 2,501,882 training / 2,375,157 exported. `val.py` and `export.py` default to
-`reg_max = 1` when a checkpoint has no such key, because every pre-experiment-3 checkpoint was
-trained with the scalar head. Defaulting to 16 there would have silently constructed the wrong
-architecture and `strict=False` would have hidden the failure. [measured] Verified end to end:
-experiment 2's `best.pt` loads through the new code and still detects (310 detections over a
-150-frame clip, 2.07 per frame, 100% eye-detection coverage).
+**Hyperparameters** (`hyp.yaml`) — optimisation and loss:
 
-### 7.4 What it costs — measured, not estimated
+| key | value | | key | value |
+|---|---|---|---|---|
+| lr0 | 0.005 | | box gain | 7.5 |
+| lrf | 0.05 | | cls gain | 0.7 |
+| momentum | 0.937 | | l1 gain | 1.0 |
+| weight_decay | 0.0005 | | tal_topk | 10 |
+| warmup_epochs | 3.0 | | tal_alpha | 0.5 |
+| warmup_momentum | 0.8 | | tal_beta | 6.0 |
+| warmup_bias_lr | 0.1 | | stal | true |
+| nominal_batch | 64 | | stal_min_size | 8.0 |
+| muon_ratio | 0.5 | | stal_ref_size | 16.0 |
+| ema_decay | 0.9999 | | prog_alpha_init | 0.8 |
+| ema_tau | 2000 | | prog_alpha_final | 0.1 |
 
-[measured] ONNX exports at `--imgsz 384`, FP16, opset 13, all from real `export.py` runs:
+**The 16 augmentations:**
+
+| augmentation | value | rationale |
+|---|---|---|
+| `mosaic` | 0.85 | 4-image mosaic; the main source of scale diversity |
+| `close_mosaic` | 20 | mosaic/mixup/erasing disabled for the final 20 epochs |
+| `mixup` | 0.10 | |
+| `scale` | 0.5 | ±50% random resize |
+| `degrees` | 10.0 | head tilt is real in a car cabin — higher than COCO's ~0 |
+| `shear` | 2.0 | |
+| `translate` | 0.1 | |
+| `perspective` | 0.0005 | camera mounting angle varies |
+| `fliplr` | 0.5 | |
+| `flipud` | 0.0 | a driver is never upside-down |
+| `hsv_h` | 0.015 | |
+| `hsv_s` | 0.7 | |
+| `hsv_v` | 0.5 | cabin lighting swings hard (tunnel, sun, night) |
+| `gray` | 0.10 | IR / monochrome driver cameras |
+| `blur` | 0.05 | motion blur + defocus on a live feed |
+| `erasing` | 0.25 | occlusion: hand over mouth, sunglasses, wheel |
+| *(plus)* `multi_scale_lo/hi` | 0.84 / 1.34 | 384 → 320–512 training window |
+
+> **Note on reading `training_summary.txt`:** that file is written at the *end* of a run,
+> so it reports `mixup 0.0` and `erasing 0.0` — the post-`close_mosaic` state. The
+> authoritative starting values are in `hyp.yaml`, written before the first batch.
+
+#### 1.2.3 The interruption
+
+[from record] Training was interrupted at **epoch 52** by a **Windows Update forced
+reboot** — not a crash. The Windows Event Log confirms planned restarts by
+`MoUsoCoreWorker.exe` / `TrustedInstaller.exe`. The run was resumed from `last.pt` and
+completed all 300 epochs.
+
+[measured] Epoch 52's metrics, for the record: **P 0.514 · R 0.927 · mAP50 0.849 ·
+mAP50-95 0.479 · fitness 0.516**. (These were mis-transcribed once from a shifted CSV
+column and corrected — see Chapter 0.)
+
+This interruption is why the checkpoint format keeps optimizer state, and why every epoch
+writes `last.pt`. It is also why the timing telemetry added later reports two totals
+(§1.5).
+
+#### 1.2.4 Results — best epoch 294, `best_fitness` 0.5730903592115826
+
+[measured] `checkpoints/Expi-1-imagez-384/REPORTS EXPI-1/evaluation.txt`.
+**Scored on the Dataset-Curated (mixed-convention) splits**, which no longer exist.
+
+**val split** — 3,082 images, 4,206 boxes:
+
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|
+| **all** | 4,206 | 0.644 | 0.950 | 0.907 | 0.536 |
+| closed_eye | 1,932 | 0.581 | 0.935 | 0.888 | 0.439 |
+| open_eye | 1,265 | 0.537 | 0.942 | 0.865 | 0.531 |
+| yawning | 1,009 | 0.815 | 0.974 | 0.966 | 0.638 |
+
+speed: 1.11 ms/img (899 img/s)
+
+**test split** — 2,873 images, 3,981 boxes:
+
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|
+| **all** | 3,981 | **0.653** | **0.944** | **0.907** | **0.541** |
+| closed_eye | 1,767 | 0.588 | 0.939 | 0.880 | 0.429 |
+| open_eye | 1,312 | 0.579 | 0.925 | 0.881 | 0.543 |
+| yawning | 902 | 0.793 | 0.968 | 0.961 | 0.650 |
+
+speed: 1.05 ms/img (956 img/s)
+
+**Wall clock: 12.12 h** [from record, console output] — spanning the reboot. No per-epoch
+timing was recorded; that instrumentation did not exist yet.
+
+#### 1.2.5 Video inference
+
+[measured] `demo_video/analysis.txt` — `15-MaleGlasses.mp4`, 640×480, native 30 FPS,
+2,639 frames (every frame), conf threshold 0.25:
+
+- **Latency 12.23 ms/frame → 81.8 FPS** (~2.7× real-time)
+- Total detections **6,165**: `open_eye` 5,350 (86.78%) · `closed_eye` 553 (8.97%) ·
+  `yawning` 262 (4.25%)
+
+⚠️ **This latency figure is not comparable to experiments 2 and 3.** Experiment 2
+measured 5.81 ms/frame on the *identical* architecture and input size. Nothing about the
+model got faster — exp 1's measurement was taken while other applications were loading
+the machine. Treat the difference as measurement conditions, not a speedup, until both
+checkpoints are re-benchmarked back to back on an idle machine. **That re-benchmark has
+never been run.**
+
+---
+
+### 1.3 Experiment 2 — Clean-data ablation
+
+**Folder:** `checkpoints/Expi-2-imagez-384/` · **Dataset:** `dataset_clean` (18,445 imgs)
+
+#### 1.3.1 Hypothesis
+
+> Removing the annotation-convention contradiction (§1.1.2) will lift accuracy, and
+> **most of all `mAP50-95`**, because the box regressor will no longer be asked to cover
+> a 3–8× scale range under one class name. The largest gain should appear in `open_eye`,
+> the most contaminated class at 45.0%.
+
+#### 1.3.2 The isolated variable
+
+**Dataset only.** [measured] `hyp.yaml` was byte-identical to experiment 1 across all 42
+keys; `args.yaml` differed only in the `--data` path. Scale, imgsz, batch, epochs,
+optimizer, seed, patience, AMP, every loss gain and all 16 augmentations held constant.
+
+```
+dataset/ -> dataset_clean/       train 22,215 -> 14,440 | val 3,082 -> 2,101 | test 2,873 -> 1,904
+```
+
+Built by `make_clean_dataset.py`: drops every **image** containing a face-scale eye box
+(w > 0.4) — the whole image, not just the box, because deleting the box alone would turn
+a real eye into unlabelled background and actively train the model to miss it. Zero
+`yawning` boxes removed. Face-scale eye boxes after filtering: **0.0%** (from 23.7% /
+45.0%).
+
+**Trained from scratch, not fine-tuned** from experiment 1. [measured] Epoch 1 mAP50 =
+0.0003 proves it — a fine-tune would have started near exp 1's converged accuracy. The
+reasoning is in §1.6.1.
+
+#### 1.3.3 Run
+
+**300 epochs, 6.09 h** [from record], no interruption. Best epoch **283**,
+`best_fitness` 0.5241072334190018.
+
+#### 1.3.4 Results
+
+[measured] `checkpoints/Expi-2-imagez-384/REPORTS EXPI-2/evaluation.txt`.
+Scored on the clean splits — which **are** today's `dataset/` splits (they differ by two
+zero-box background negatives, both in *train*).
+
+**val split** — 2,101 images, 3,223 boxes:
+
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|
+| **all** | 3,223 | 0.657 | 0.942 | 0.891 | 0.483 |
+| closed_eye | 1,551 | 0.652 | 0.927 | 0.892 | 0.417 |
+| open_eye | 663 | 0.508 | 0.922 | 0.812 | 0.397 |
+| yawning | 1,009 | 0.811 | 0.977 | 0.969 | 0.636 |
+
+speed: 1.02 ms/img (983 img/s)
+
+**test split** — 1,904 images, 3,009 boxes:
+
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|
+| **all** | 3,009 | **0.664** | **0.940** | **0.900** | **0.483** |
+| closed_eye | 1,391 | 0.662 | 0.927 | 0.900 | 0.415 |
+| open_eye | 716 | 0.530 | 0.919 | 0.836 | 0.382 |
+| yawning | 902 | 0.799 | 0.976 | 0.964 | 0.652 |
+
+speed: 0.91 ms/img (1,098 img/s)
+
+#### 1.3.5 The valid comparison, and the +0.073 `open_eye` gain
+
+Experiments 1 and 2 were scored on **different** test splits, so their headline rows are
+not directly comparable. Both checkpoints were therefore re-evaluated on the **same clean
+test split** ([measured], `BASELINE_for_comparison.txt`):
+
+| | exp 1 | exp 2 | Δ |
+|---|---:|---:|---:|
+| mAP50 | 0.870 | **0.900** | **+0.030** |
+| mAP50-95 | 0.473 | **0.483** | **+0.010** |
+
+Per class, mAP50:
+
+| class | exp 1 | exp 2 | Δ | contamination removed |
+|---|---:|---:|---:|---|
+| `open_eye` | — | — | **+0.073** | 45.0% (the most contaminated) |
+| `yawning` | — | — | **+0.002** | 0% — **the control** |
+
+The gain is concentrated exactly where the contamination was, and the untouched class
+moved by +0.002 — behaving correctly as a control. **The filter did what it was designed
+to do.**
+
+#### 1.3.6 What was refuted
+
+**The headline prediction was wrong.** mAP50-95 moved **+0.010** (0.473 → 0.483), not
+the substantial rise predicted. mAP50 gained three times as much. The ratio
+mAP50-95/mAP50 went from 0.54 to 0.54 — **unchanged**.
+
+> **Conclusion: the annotation-convention contradiction was not the cause of the
+> localisation ceiling.** It was a real defect and fixing it was worthwhile — precision
+> rose, `open_eye` gained 7.3 points of mAP50 — but the thing it was predicted to fix
+> did not move. This refutation is what motivated experiment 3.
+
+#### 1.3.7 Video inference
+
+[measured] Same clip, 2,639 frames, conf 0.25:
+
+- **Latency 5.81 ms/frame → 172.0 FPS** (~5.7× real-time)
+- Total detections **5,637** (vs exp 1's 6,165 — **528 fewer**): `open_eye` 4,958
+  (87.96%) · `closed_eye` 373 (6.62%, **−180**) · `yawning` 306 (5.43%)
+
+The direction matches the measured precision gain (0.653 → 0.664): fewer spurious
+detections. **Without frame-level ground truth for this clip it cannot be proven that the
+removed boxes were all false positives** — only that the direction is consistent.
+
+---
+
+### 1.4 Experiment 3 — DFL head ablation
+
+**Folder:** `checkpoints/Expi-3-imagez-384/` · **Dataset:** `dataset/` (18,447 imgs)
+
+#### 1.4.1 Hypothesis
+
+> Experiment 2 eliminated annotation convention as the cause of the localisation ceiling.
+> The remaining suspect is the **box representation**: the head regresses four raw scalars
+> per location (`reg_max = 1`) under CIoU + L1 — the weakest representation available.
+> Replacing it with a **discrete distribution over 16 bins per ltrb side**, supervised by
+> Distribution Focal Loss, should sharpen localisation and lift mAP50-95, which averages
+> IoU thresholds up to 0.95 and is therefore exactly the metric a coarse box
+> representation caps.
+
+#### 1.4.2 Architecture changes
+
+- **`src/v2/models/head.py`** — new `DFL` module. Each ltrb side is predicted as a
+  softmax over `reg_max = 16` integer bins and integrated back to a scalar by a **frozen
+  1×1 convolution whose weights are `[0, 1, …, 15]`** — literally the expectation of the
+  distribution. Implemented as a Conv rather than a matmul because Conv is the
+  better-supported op in every edge compiler. `cv2` now emits `4 × reg_max = 64` channels
+  instead of 4.
+- **`src/v2/losses/loss.py`** — new `L_dfl` term: the linear interpolation of the
+  cross-entropy against the two integer bins straddling each continuous target. A target
+  of 7.3 asks for 70% of the mass on bin 7 and 30% on bin 8. CIoU supervises the decoded
+  box; DFL supervises the shape of the distribution behind it.
+- **`src/v2/cfg/hyp.yaml`** — new gain `dfl: 1.5` (the YOLOv8/v11 value, not tuned here).
+- Box trunk widened to `2 × reg_max` rather than Ultralytics' `4 × reg_max`, specifically
+  to protect the export size budget; the wider trunk measured ~139k more exported params.
+
+**Backward compatibility.** `reg_max = 1` still builds the original head — [measured]
+parameter counts identical to before the change (2,501,882 train / 2,375,157 exported) —
+and every loader defaults to `reg_max = 1` when a checkpoint lacks the key, because every
+pre-experiment-3 checkpoint used the scalar head. Defaulting to 16 would have silently
+built the wrong architecture with `strict=False` hiding the failure.
+
+#### 1.4.3 The isolated variable
+
+[measured] Across all 42 `hyp.yaml` keys, **exactly one differs** between experiments 2
+and 3: `dfl: 1.5` (absent in exp 2). Every augmentation, every loss gain, every
+optimisation setting identical. `args.yaml` differs in `reg_max` (1 → 16) and `workers`
+(6 → 4, a memory accommodation with no accuracy effect).
+
+**CIoU and L1 were both retained** alongside DFL — deliberately, to keep the experiment to
+a single variable. Ultralytics drops L1 entirely when using DFL.
+
+#### 1.4.4 The L1 vs DFL competition — a pre-registered concern
+
+[measured] `l1_loss` at initialisation is **7.15** with the DFL head against **2.20** with
+the scalar head — **3.3× higher**. The cause is structural: a uniform distribution over 16
+bins has expectation 7.5 cells, whereas the old head's bias started boxes at 1 cell. With
+`l1: 1.0` that term became the largest in the loss early in training and competed with DFL
+for the same gradient.
+
+[measured] Trajectory over the run:
+
+| epoch | `l1_loss` | `dfl_loss` |
+|---|---:|---:|
+| 1 | 6.13 | 4.06 |
+| 300 | 1.23 | 1.35 |
+
+By the end the two terms are roughly balanced, so **the competition did not destabilise
+training** — but it may have cost the early epochs something never recovered. This was
+written down *before* results were known, and remains the leading candidate explanation
+for the negative outcome.
+
+#### 1.4.5 Run and cost
+
+**300/300 epochs completed**, no interruption. Best `best_fitness` 0.5187640260940111 at
+epoch 299 (checkpoint saved at epoch 299; the final epoch 300 val row is the best on
+`fitness`, 0.518764).
+
+[measured] `training_summary.txt` — the first run with per-epoch timing:
+
+```
+this process            : 6.565 h  (393.9 min)
+sum of epoch timings    : 6.520 h
+epochs completed        : 300 of 300
+mean epoch              : 78.2 s
+fastest / slowest       : 74.2 s / 142.9 s
+first / last epoch      : 142.9 s / 77.4 s
+```
+
+The 142.9 s first epoch against a 74.2 s minimum is first-touch disk reads plus CUDA
+warm-up — a 1.9× spread that makes any single-epoch timing estimate unreliable.
+
+**Export size regression** [measured], FP16 ONNX at `--imgsz 384`, opset 13:
 
 | head | exported params | FP16 ONNX |
-|---|---|---|
-| `reg_max = 1` (exp 1 / exp 2) | 2,375,157 | **4.85 MB** |
+|---|---:|---:|
+| `reg_max = 1` | 2,375,157 | **4.85 MB** |
 | `reg_max = 8` | 2,376,593 | **4.86 MB** |
-| `reg_max = 16` (exp 3 default) | 2,466,649 | **5.04 MB** |
+| `reg_max = 16` | 2,466,649 | **5.04 MB** |
 
-**`reg_max = 16` lands 0.24 MB above the 4.8 MB edge budget.** It is not free and is not
-reported as free. `reg_max = 8` buys DFL for +0.01 MB and is the in-budget alternative if that
-ceiling is hard — `--reg-max 8` and nothing else changes.
+`reg_max = 16` costs **+0.19 MB** over the DFL-free head and lands **0.24 MB above the
+4.8 MB edge budget**. `reg_max = 8` would have bought DFL for +0.01 MB.
 
-The box trunk is widened to `2 * reg_max` rather than Ultralytics' `4 * reg_max`, specifically
-to hold that line; the wider trunk measured roughly 139k more exported parameters. The DFL
-integral exports as `Softmax` + `Conv`, both natively supported by ONNX Runtime, TensorRT and
-OpenVINO — no custom operator.
+#### 1.4.6 Results
 
-### 7.5 Configuration verified
+[measured] `checkpoints/Expi-3-imagez-384/REPORTS EXPI-3/evaluation.txt`.
 
-[measured] A 1-epoch run on `dataset/` (a config check, **not** an
-experiment):
+**val split** — 2,101 images, 3,223 boxes:
 
-```
-box=3.304  cls=5.984  l1=7.149  dfl=3.959  a=0.80  lr=5.00e-03
-epoch 1  mAP50=0.0452  mAP50-95=0.0135  P=0.136  R=0.083
-checkpoint reg_max = 16   |   results.csv gained a dfl_loss column
-```
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|
+| **all** | 3,223 | 0.650 | 0.935 | 0.884 | 0.478 |
+| closed_eye | 1,551 | 0.632 | 0.910 | 0.870 | 0.406 |
+| open_eye | 663 | 0.517 | 0.921 | 0.815 | 0.395 |
+| yawning | 1,009 | 0.801 | 0.974 | 0.965 | 0.634 |
 
-The DFL term is active and falling, validation runs, the checkpoint records `reg_max`. That is
-all this proves.
+speed: 1.12 ms/img (891 img/s)
 
-### 7.6 Two caveats that must travel with this experiment
+**test split** — 1,904 images, 3,009 boxes:
 
-**1. L1 now starts 3.3× higher than it did.** [measured] `l1_loss` at initialisation is **7.15**
-with the DFL head against **2.20** with the scalar head. The cause is structural: a uniform
-distribution over 16 bins has expectation 7.5 cells, whereas the old head's bias started boxes
-at 1 cell. With `l1: 1.0` that term is now the largest in the loss early in training and
-competes with DFL for the same gradient. **Ultralytics drops L1 entirely when using DFL.**
-Keeping it here is a deliberate trade — one variable per experiment — but if experiment 3
-underperforms, `l1: 0.0` (call it experiment 3b) is the first thing to try, ahead of a larger
-`reg_max`.
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|---:|
+| **all** | 3,009 | **0.658** | **0.931** | **0.883** | **0.478** |
+| closed_eye | 1,391 | 0.657 | 0.914 | 0.882 | 0.415 |
+| open_eye | 716 | 0.531 | 0.912 | 0.811 | 0.372 |
+| yawning | 902 | 0.786 | 0.967 | 0.956 | 0.648 |
 
-**2. This deliberately walks back a YOLO26 design decision.** YOLO26 removed DFL on purpose:
-the 16-bin softmax hurts INT8 quantisation and is brittle in TFLite and NCNN compilers. This
-project implements the rest of that recipe — MuSGD, STAL, ProgLoss — and is now knowingly out
-of step with it on this one point. If experiment 3 does not clearly beat 0.483, the right
-response is to revert, not to accumulate the portability cost for nothing.
+speed: 0.98 ms/img (1,021 img/s)
 
-### 7.7 How to run it
+#### 1.4.7 Formal refutation of the DFL hypothesis
 
-```powershell
-conda activate AI-3.11
-cd "C:\mini_yolo"
-python -m src.v2.train --data dataset/data.yaml --scale n --imgsz 384 `
-  --batch 64 --epochs 300 --workers 4 --seed 0 --reg-max 16 --name v2_n384_dfl
-```
+Experiments 2 and 3 were scored on the **same** test split (1,904 images / 3,009 boxes),
+so this comparison is direct and needs no cross-evaluation:
 
-Directly comparable to experiment 2: same dataset, same splits, same `hyp.yaml`, same seed,
-same everything except the head.
+| metric | exp 2 (`reg_max=1`) | exp 3 (`reg_max=16`) | Δ |
+|---|---:|---:|---:|
+| Precision | 0.664 | 0.658 | **−0.006** |
+| Recall | 0.940 | 0.931 | **−0.009** |
+| mAP50 | 0.900 | 0.883 | **−0.017** |
+| mAP50-95 | 0.483 | 0.478 | **−0.005** |
 
----
+Per class, mAP50-95:
 
-## Chapter 8: Temporal driver monitoring
+| class | exp 2 | exp 3 | Δ |
+|---|---:|---:|---:|
+| closed_eye | 0.415 | 0.415 | **0.000** |
+| open_eye | 0.382 | 0.372 | **−0.010** |
+| yawning | 0.652 | 0.648 | **−0.004** |
 
-Dated 2026-08-29. New module `src/v2/temporal.py`.
+> **The hypothesis is refuted. Every metric moved down or stayed flat; nothing improved.**
 
-### 8.1 Why the detector is not enough
+Three observations:
 
-The detector is per-frame and stateless. Fatigue is not. A single closed-eye frame means
-nothing; a closed-eye frame that is the 45th in a row means the driver is asleep. Everything
-this project measured before this module was a per-frame class score, which cannot express
-that difference. The previous HUD heuristic (`FatigueTracker`, a 45-frame blend of two class
-fractions) is not a fatigue measure — it has no notion of event duration at all.
+1. **The bar was set in advance and missed.** The pre-registered criterion was "if
+   experiment 3 does not clearly beat 0.483, revert". It came in at **0.478** — below,
+   not above.
+2. **The damage is in mAP50, not mAP50-95.** The metric DFL was supposed to lift moved
+   −0.005 (noise-scale). The metric it was not supposed to touch moved **−0.017**,
+   concentrated in `open_eye` (mAP50 0.836 → 0.811, −2.5 points). `closed_eye` mAP50-95
+   is *exactly* flat at 0.415. DFL did not merely fail to help localisation — it cost
+   classification confidence on the class that was already weakest.
+3. **It cost more to get less.** 6.52 h vs 6.09 h (~7% slower) and 5.04 MB vs 4.85 MB
+   exported.
 
-The temporal logic is kept out of both the model and the renderer so it can be tested without
-a frame buffer, replayed offline, and reused by any front end.
+**This also walked back a YOLO26 design decision knowingly.** YOLO26 removed DFL on
+purpose — the 16-bin softmax hurts INT8 quantisation and is brittle in TFLite/NCNN
+compilers. This project implements the rest of that recipe (MuSGD, STAL, ProgLoss) and
+stepped out of line with it on this one point. The result does not justify the deviation.
 
-### 8.2 The three signals
-
-**PERCLOS** — the fraction of time the eyes are closed over a rolling 60 s window; the most
-validated drowsiness proxy in the literature. Computed **only over frames where an eye was
-actually detected**. Frames where the detector saw no eye go to a separate `coverage` figure
-instead of silently biasing the score in either direction. This matters here specifically:
-Chapter 5.2 documents that this model is never confident on real video, so dropped frames are
-expected and must not be quietly counted as "eyes open".
-
-**Blinks versus microsleeps** — the same visual event, separated by duration alone. 100–400 ms
-is a natural blink. A closure at or past 1.5 s is a microsleep, and it fires **the moment the
-threshold is crossed, not when the eyes reopen** — waiting for the end of the event to report
-it would defeat the purpose. A lost face does **not** end a closure; only a confirmed
-`open_eye` does, so the alarm stays latched if the detector drops the driver mid-event.
-
-**Yawn frequency** — continuous duration plus occurrences per minute. A run must exceed 400 ms
-to count, so a two-frame flicker is treated as detector noise rather than a yawn.
-
-Alert ladder SAFE → WARNING → CRITICAL. An active microsleep outranks every windowed statistic,
-because the windows are averages and the microsleep is happening now.
-
-### 8.3 Tests
-
-[measured] `python -m src.v2.tests.test_temporal` — **27 assertions, all passing**, over
-synthetic 30 fps timelines so the expected frame indices are exact rather than approximate.
-They cover: a 200 ms blink counted as a blink and not a microsleep; a 67 ms flicker rejected;
-a 500 ms closure counted as neither; a 2 s closure firing exactly one microsleep at **frame 45**
-of the closure (= 1.5 s); the alarm latching through a lost face and clearing only on a
-confirmed open eye; PERCLOS excluding blind frames from its denominator while coverage drops
-to 0.5; yawn counting and rate; and end-of-stream totals.
-
-### 8.4 Rendering and reporting
-
-`src/v2/hud.py` draws the telemetry panel (PERCLOS, blinks/min, yawns/min, live closure timer)
-and a full-width alarm strip during a microsleep. `src/v2/report.py` writes
-`video/analysis.txt` per clip: throughput, per-class detection share, the temporal readout, and
-the frame counts at each alert level.
-
-A regression was introduced and fixed in the same session: the nav panel is drawn *after* the
-boxes and grew taller with the telemetry rows, which buried the labels of any detection in the
-top-left corner — the exact complaint raised earlier about label legibility.
-`draw_detection_boxes` now takes an `avoid` rectangle and relocates a buried label below the
-box, then to the right of the panel.
-
-### 8.5 The limitation that matters most
-
-**Every threshold in this module is a conventional value from the driver-monitoring literature,
-and not one of them has been validated on this project's data.** This dataset has no drowsiness
-ground truth — there is no label anywhere in it that says a driver was drowsy — so nothing was
-or could be tuned against one. PERCLOS 15%/30%, blink 100–400 ms, microsleep 1.5 s and yawn
-400 ms are all inherited defaults.
-
-The output is instrumentation, not a diagnosis, and must never be reported as a clinical
-finding. That warning is repeated in the module docstring, in every generated
-`video/analysis.txt`, and in `AGENTS.md`.
+**Recommended disposition:** revert to `reg_max = 1`. Experiment 2's checkpoint remains
+the best model this project has produced. The one loose thread worth pulling before
+abandoning DFL entirely is **exp 3b: identical run with `l1: 0.0`** (§1.4.4) — not a
+larger `reg_max`.
 
 ---
 
-## Chapter 9: The `checkpoints/` reorganisation
+### 1.5 Comparative summary tables
 
-Dated 2026-08-29. Working rule: **less files is better to understand.**
+#### 1.5.1 Architecture and loss
 
-Before, one experiment was split across two trees — `runs/v2/<name>/` for weights and the
-epoch CSV, `info/experiment N <name>/` for the report. Nothing tied them together except
-memory, and neither name said what image size it was trained at.
+| | Exp 1 | Exp 2 | Exp 3 |
+|---|---|---|---|
+| Backbone | MiniDarknetV2 (n) | *identical* | *identical* |
+| Neck | MiniPANv2 | *identical* | *identical* |
+| Head | DualDetect, anchor-free, no objectness | *identical* | *identical* |
+| **`reg_max`** | **1 (DFL-free)** | **1 (DFL-free)** | **16 (DFL)** |
+| Box regression | 4 raw ltrb scalars | 4 raw ltrb scalars | 16-bin softmax → frozen 1×1 conv integral |
+| Box loss | CIoU + L1 | CIoU + L1 | **CIoU + L1 + DFL** |
+| `dfl` gain | — | — | **1.5** |
+| Cls loss | BCE, TAL soft targets | *identical* | *identical* |
+| Assignment | TAL + STAL | *identical* | *identical* |
+| Inference | NMS-free (one2one) | *identical* | *identical* |
+| Train params | 2,501,882 | 2,501,882 | **2,685,042** |
+| Export params | 2,375,157 | 2,375,157 | **2,466,649** |
 
-Now every experiment is one self-contained folder with exactly two subdirectories:
+#### 1.5.2 Hyperparameters and augmentations
+
+[measured] Across all 42 `hyp.yaml` keys, **`dfl` is the only key that differs between
+any two experiments.** Everything below was held constant across all three runs:
+
+| group | settings (identical in Exp 1, 2, 3) |
+|---|---|
+| Optimisation | `lr0` 0.005 · `lrf` 0.05 · `momentum` 0.937 · `weight_decay` 0.0005 · `warmup_epochs` 3.0 · `warmup_momentum` 0.8 · `warmup_bias_lr` 0.1 · `nominal_batch` 64 · `muon_ratio` 0.5 |
+| EMA | `ema_decay` 0.9999 · `ema_tau` 2000 |
+| Loss gains | `box` 7.5 · `cls` 0.7 · `l1` 1.0 |
+| Assignment | `tal_topk` 10 · `tal_alpha` 0.5 · `tal_beta` 6.0 · `stal` true · `stal_min_size` 8.0 · `stal_ref_size` 16.0 |
+| ProgLoss | `prog_alpha_init` 0.8 → `prog_alpha_final` 0.1 |
+| **Augmentation (16)** | `mosaic` 0.85 · `close_mosaic` 20 · `mixup` 0.10 · `scale` 0.5 · `degrees` 10.0 · `shear` 2.0 · `translate` 0.1 · `perspective` 0.0005 · `fliplr` 0.5 · `flipud` 0.0 · `hsv_h` 0.015 · `hsv_s` 0.7 · `hsv_v` 0.5 · `gray` 0.10 · `blur` 0.05 · `erasing` 0.25 |
+| Multi-scale | `multi_scale_lo` 0.84 · `multi_scale_hi` 1.34 (384 → 320–512) |
+
+Run arguments:
+
+| | Exp 1 | Exp 2 | Exp 3 |
+|---|---|---|---|
+| dataset | Dataset-Curated (28,170) | dataset_clean (18,445) | dataset (18,447) |
+| scale / imgsz / batch | n / 384 / 64 | n / 384 / 64 | n / 384 / 64 |
+| epochs | 300 | 300 | 300 |
+| optimizer / seed | musgd / 0 | musgd / 0 | musgd / 0 |
+| patience / amp | 60 / true | 60 / true | 60 / true |
+| workers | 6 | 6 | 4 |
+| `reg_max` | 1 | 1 | **16** |
+
+#### 1.5.3 Training cost
+
+| | Exp 1 | Exp 2 | Exp 3 |
+|---|---:|---:|---:|
+| Wall clock | **12.12 h** ¹ | **6.09 h** | **6.52 h** |
+| Epochs | 300 | 300 | 300 |
+| Best epoch | 294 | 283 | 299 |
+| `best_fitness` | 0.5730903592 | 0.5241072334 | 0.5187640261 |
+| Mean epoch | not recorded ² | not recorded ² | **78.2 s** |
+| Fastest / slowest epoch | not recorded ² | not recorded ² | 74.2 s / 142.9 s |
+| Interruption | **yes** — Windows Update, epoch 52 | no | no |
+| FP32 ONNX | 9.50 MB | 9.50 MB | 9.87 MB |
+| **FP16 ONNX** | **4.85 MB** | **4.85 MB** | **5.04 MB** |
+| Checkpoint `best.pt` | 30.69 MB | 30.69 MB | 32.89 MB |
+
+¹ Spans the reboot; larger dataset (28,170 vs ~18,446 images) also contributes.
+² Per-epoch timing instrumentation did not exist until experiment 3. **No per-epoch
+timing may be quoted for experiments 1 or 2 — none was measured.**
+
+#### 1.5.4 Unified evaluation — the clean test split
+
+The only three-way comparable numbers. Exp 2 and Exp 3 were scored natively on this
+split (1,904 images / 3,009 boxes); **Exp 1 was re-evaluated onto it** for comparability.
+
+**Overall:**
+
+| metric | Exp 1 ¹ | Exp 2 | Exp 3 |
+|---|---:|---:|---:|
+| Precision | 0.642 ² | **0.664** | 0.658 |
+| Recall | — ² | **0.940** | 0.931 |
+| **mAP50** | 0.870 | **0.900** | 0.883 |
+| **mAP50-95** | 0.473 | **0.483** | 0.478 |
+| mAP50-95 / mAP50 | 0.54 | 0.54 | 0.54 |
+
+¹ Re-evaluated, from `BASELINE_for_comparison.txt`.
+² Only the metrics recorded in that comparison file are given; blanks were not measured
+and are not estimated.
+
+**Per class, on each experiment's own native test split** (Exp 1's split is the
+mixed-convention one and its rows are therefore *not* comparable to the other two):
+
+| class | metric | Exp 1 (mixed split) | Exp 2 (clean split) | Exp 3 (clean split) |
+|---|---|---:|---:|---:|
+| **closed_eye** | P | 0.588 | 0.662 | 0.657 |
+| | R | 0.939 | 0.927 | 0.914 |
+| | mAP50 | 0.880 | **0.900** | 0.882 |
+| | mAP50-95 | 0.429 | 0.415 | 0.415 |
+| **open_eye** | P | 0.579 | 0.530 | 0.531 |
+| | R | 0.925 | 0.919 | 0.912 |
+| | mAP50 | 0.881 | **0.836** | 0.811 |
+| | mAP50-95 | 0.543 | 0.382 | 0.372 |
+| **yawning** | P | 0.793 | 0.799 | 0.786 |
+| | R | 0.968 | 0.976 | 0.967 |
+| | mAP50 | 0.961 | **0.964** | 0.956 |
+| | mAP50-95 | 0.650 | 0.652 | 0.648 |
+
+> **Reading the `open_eye` rows.** Exp 1's apparently superior 0.543 mAP50-95 is an
+> artefact of its test split, which still contained the large face-scale boxes — big
+> boxes are far easier to localise at high IoU. On the shared clean split exp 1 scores
+> **below** exp 2. This is precisely why §1.3.5's re-evaluation exists and why the mixed
+> split was retired.
+
+**The constant across all three: mAP50-95 / mAP50 = 0.54.** Two deliberate interventions —
+fixing the labels, then changing the box representation — moved it by nothing. Whatever
+caps localisation in this project was untouched by either.
+
+#### 1.5.5 Video deployment telemetry
+
+Same clip throughout: `15-MaleGlasses.mp4`, 640×480, native 30 FPS, 2,639 frames (every
+frame), conf threshold 0.25, RTX 2000 Ada.
+
+| | Exp 1 | Exp 2 | Exp 3 |
+|---|---:|---:|---:|
+| Latency | 12.23 ms ¹ | **5.81 ms** | 6.47 ms |
+| Throughput | 81.8 FPS ¹ | **172.0 FPS** | 154.5 FPS |
+| Real-time headroom | 2.7× ¹ | 5.7× | 5.15× |
+| Total detections | 6,165 | 5,637 | 6,134 |
+| `open_eye` | 5,350 (86.78%) | 4,958 (87.96%) | 5,447 (88.8%) |
+| `closed_eye` | 553 (8.97%) | 373 (6.62%) | 438 (7.1%) |
+| `yawning` | 262 (4.25%) | 306 (5.43%) | 249 (4.1%) |
+
+¹ **Not comparable** — measured on a loaded machine. See §1.2.5. The three architectures
+are near-identical in cost; exp 1 was not 2× slower.
+
+**Temporal telemetry** (exp 3 only — `src/v2/temporal.py` did not exist for exps 1–2):
+
+```
+eye-detection coverage  : 97.9% of frames
+PERCLOS (final window)  : 10.7%
+blinks (100-400 ms)     : 16  (10.9/min)
+yawns (>= 400 ms)       : 4  (2.7/min)
+microsleeps (>= 1.5 s)  : 0
+longest eye closure     : 0.83 s
+alert frames            : SAFE 1,279 (48.5%) | WARNING 1,360 (51.5%) | CRITICAL 0
+```
+
+⚠️ Every threshold here is a conventional DMS-literature default. **None is validated
+against this project's data** — the dataset has no drowsiness ground truth, so nothing
+was or could be tuned against a label. This is instrumentation, never a diagnosis.
+
+**The measured domain gap.** [measured] Experiment 2's model, conf 0.25 — 600 sampled
+test stills against every third frame of the demo video:
+
+| source | detections | mean conf | median | > 0.7 | > 0.9 |
+|---|---:|---:|---:|---:|---:|
+| test stills | 1,108 | 0.645 | 0.720 | 52.4% | **11.4%** |
+| demo video | 1,886 | 0.585 | 0.647 | 36.7% | **0.0%** |
+
+**Not one detection in 1,886 video frames exceeds 0.9 confidence, against 11.4% on
+stills.** The model is never confident on real footage.
+
+[measured] **Lighting is not the cause for this clip.** Mean-grey brightness: training set
+p5 65.0 / median 116.1 / p95 196.8; demo video p5 96.2 / median 102.7 / p95 110.8 — the
+video sits well inside the training range. The remaining candidates are motion blur,
+video compression, continuous capture versus curated stills, and the subject's glasses.
+**None of these has been isolated experimentally.**
+
+---
+
+### 1.6 Direct answers
+
+#### 1.6.1 Why was experiment 2 trained from scratch instead of fine-tuning exp 1's `best.pt`?
+
+Because fine-tuning would have destroyed the experiment. The purpose was to measure the
+effect of **one variable** — the dataset. A model initialised from exp 1's weights carries
+exp 1's learned response to the contaminated boxes: it has already been trained to emit
+face-scale boxes for `open_eye`. Any subsequent measurement would confound "what the clean
+data teaches" with "what the contaminated data already taught, partially unlearned". The
+resulting number would not answer the question.
+
+Training from scratch cost 6.09 h and produced an attributable result. That was the right
+trade. [measured] Epoch 1 mAP50 = 0.0003 confirms the run genuinely started from random
+initialisation.
+
+#### 1.6.2 Why is `best.pt` ~30 MB when the model is nano-class?
+
+[measured] `best.pt` is 30,690,602 bytes because it holds **three copies** of the network
+plus optimiser state:
+
+| component | size | needed for inference? |
+|---|---:|---|
+| `model` (raw weights) | 10.33 MB | no |
+| `ema` (EMA weights — what is actually evaluated) | 10.33 MB | **yes** |
+| `optimizer` state | 10.08 MB | no — needed for `--resume` |
+
+The model itself is 2,375,157 parameters. The optimiser state exists so `--resume` works,
+which is what rescued experiment 1 from the Windows Update reboot. The deployable artefact
+is the ONNX export: **9.50 MB fp32 / 4.85 MB fp16**.
+
+⚠️ The training banner prints an "int8 ~2.38 MB" figure. That is **arithmetic**
+(params ÷ 4), not a measured quantised export. **No int8 model has ever been built or
+evaluated in this project. Do not quote that number.**
+
+#### 1.6.3 What is the best model this project has produced?
+
+**Experiment 2's checkpoint** — `checkpoints/Expi-2-imagez-384/weights/best.pt`, epoch
+283, mAP50 0.900 / mAP50-95 0.483 on the clean test split. Experiment 3 did not beat it.
+
+---
+
+### 1.7 What Chapter 1 leaves unresolved
+
+1. **The localisation ceiling — still unexplained.** mAP50-95/mAP50 = 0.54 across all
+   three experiments, against a healthy 0.70+. Two hypotheses tested, both refuted:
+   annotation convention (exp 2) and box representation (exp 3). **The cause is not
+   known.** The strongest untested lead is *label tightness* — published fatigue work
+   reports ~0.94 mAP50-95 on other datasets against 0.483 here. That is a different
+   dataset and not a valid comparison, but a gap that size is unlikely to be architecture
+   alone. **Nobody has hand-audited a sample of boxes for tightness.** That is the
+   cheapest remaining experiment and it has not been run.
+2. **The train/deploy domain gap — measured, uncaused.** 0 of 1,886 video detections
+   exceed 0.9 confidence against 11.4% on stills (§1.5.5). Lighting is ruled out for this
+   clip. Motion blur, compression, and continuous capture remain unseparated.
+3. **Night driving — untested.** 4.7% of the dataset is `night_or_very_low_light`. No
+   result in this document tests it; the only demo clip is daylight.
+4. **Not subject-disjoint, and cannot be made so** from the available metadata (§1.1.4).
+   Every metric in this chapter carries that caveat.
+5. **Exp 1's video latency was never re-benchmarked** against exps 2–3 on an idle machine
+   (§1.2.5).
+6. **`reg_max = 8` was never trained.** It would have bought DFL for +0.01 MB instead of
+   +0.19 MB. Only 1 and 16 were run.
+7. **Exp 3b (`l1: 0.0`) was never run** — the one remaining fair test of DFL (§1.4.4).
+
+---
+
+## Appendix C: Infrastructure built alongside the Foundation Experiments
+
+Everything in this appendix is tooling and process, not a model result — it belongs beside
+Chapter 1 rather than inside it because none of it moved a metric. Dated 2026-08-29 to
+2026-08-30, spanning the period between experiment 2 and the writing of this record.
+
+### C.1 Temporal driver monitoring — `src/v2/temporal.py`
+
+**Why the detector is not enough.** The detector is per-frame and stateless. Fatigue is
+not. A single closed-eye frame means nothing; a closed-eye frame that is the 45th in a row
+means the driver is asleep. Every metric in Chapter 1 is a per-frame class score, which
+cannot express that difference. The earlier HUD heuristic (`FatigueTracker`, a 45-frame
+blend of two class fractions) is not a fatigue measure — it has no notion of event duration
+at all. The temporal logic is kept out of both the model and the renderer so it can be
+tested without a frame buffer, replayed offline, and reused by any front end.
+
+**The three signals.**
+
+- **PERCLOS** — fraction of time the eyes are closed over a rolling 60 s window, the most
+  validated drowsiness proxy in the literature. Computed **only over frames where an eye
+  was actually detected**; frames where the detector saw no eye go to a separate `coverage`
+  figure instead of silently biasing the score. This matters specifically here: §1.5.5
+  documents that the model is never confident on real video, so dropped frames are expected
+  and must not be quietly counted as "eyes open".
+- **Blinks versus microsleeps** — the same visual event, separated by duration alone.
+  100–400 ms is a natural blink; a closure at or past 1.5 s is a microsleep, and it fires
+  **the moment the threshold is crossed, not when the eyes reopen**. A lost face does
+  **not** end a closure — only a confirmed `open_eye` does, so the alarm stays latched if
+  the detector drops the driver mid-event.
+- **Yawn frequency** — continuous duration plus occurrences per minute; a run must exceed
+  400 ms to count, so a two-frame flicker is treated as noise.
+
+Alert ladder SAFE → WARNING → CRITICAL. An active microsleep outranks every windowed
+statistic, because the windows are averages and the microsleep is happening now.
+
+**Tests.** [measured] `python -m src.v2.tests.test_temporal` — **27 assertions, all
+passing**, over synthetic 30 fps timelines so expected frame indices are exact. Covered: a
+200 ms blink counted as a blink and not a microsleep; a 67 ms flicker rejected; a 500 ms
+closure counted as neither; a 2 s closure firing exactly one microsleep at **frame 45**
+(= 1.5 s); the alarm latching through a lost face and clearing only on a confirmed open
+eye; PERCLOS excluding blind frames from its denominator while coverage drops to 0.5; yawn
+counting and rate; end-of-stream totals.
+
+**Rendering.** `src/v2/hud.py` draws the telemetry panel (PERCLOS, blinks/min, yawns/min,
+live closure timer) and a full-width alarm strip during a microsleep. A label-overlap
+regression was introduced and fixed in the same session: the taller telemetry panel buried
+detection-box labels in the top-left corner. `draw_detection_boxes` now takes an `avoid`
+rectangle and relocates a buried label below the box, then right of the panel.
+
+**The limitation that matters most.** Every threshold here is a conventional value from
+the driver-monitoring literature, and **none of them has been validated on this project's
+data** — there is no drowsiness ground truth anywhere in the dataset, so nothing was or
+could be tuned against a label. Output is instrumentation, never a diagnosis. This warning
+is repeated in the module docstring, in every generated `demo_video/analysis.txt`, and in
+`AGENTS.md`.
+
+### C.2 The `checkpoints/` reorganisation
+
+Working rule: **less files is better to understand.** Before, one experiment was split
+across two trees — `runs/v2/<name>/` for weights and the epoch CSV, `info/experiment N
+<name>/` for the report — tied together only by memory. Now every experiment is one
+self-contained folder with exactly two subdirectories:
 
 ```
 checkpoints/Expi-<N>-imagez-<Size>/
   weights/            best.pt  last.pt  best.onnx
   REPORTS EXPI-<N>/   evaluation.txt  training_log.txt  training_log.csv
-                      full_epoch_log.txt  args.yaml  hyp.yaml
+                      training_summary.txt  full_epoch_log.txt  args.yaml  hyp.yaml
                       plots/  demo_video/
 ```
 
-[measured] `checkpoints/Expi-1-imagez-384/` 21 files / 90 MB;
-`checkpoints/Expi-2-imagez-384/` 22 files / 90 MB (it also carries
-`BASELINE_for_comparison.txt`, the cross-evaluation that makes exp 1 and exp 2
-comparable on one split); `checkpoints/Expi-3-imagez-384/` created empty in the same
-shape. `runs/` was deleted after migration. Experiment 1 had no ONNX export, so one was
-generated during the migration so the two finished experiments have identical structure
-(2,375,157 params, 9.50 MB fp32).
+[measured] `checkpoints/Expi-1-imagez-384/` 21 files / 90 MB; `checkpoints/Expi-2-imagez-384/`
+22 files / 90 MB (also carries `BASELINE_for_comparison.txt`, the cross-evaluation behind
+§1.3.5); `checkpoints/Expi-3-imagez-384/` now holds the full trained result (§1.4). `runs/`
+was deleted after migration. Experiment 1 had no ONNX export, so one was generated during
+the migration so all three experiments share identical structure.
 
 Three things were **moved rather than deleted**, because deleting them would have broken
-citations in documents that are themselves the record:
+citations in documents that are themselves the record: `analysis/` →
+`dataset/metadata/analysis/` (the τ study and 3-way comparison behind §1.1.3, ten
+references across six files repointed); `info/experiment 1 baseline/historical_v1_cpu_baseline/`
+→ `info/historical_v1_cpu_baseline/` (v1 is not a v2 experiment); each run's `args.yaml` /
+`hyp.yaml` → into its report folder (the only surviving statement of what configuration
+produced those numbers). One file was deleted outright: each run's `results.png`,
+regenerated from `training_log.csv` by `src/v2/utils/plots.plot_results`.
 
-- `analysis/` → `dataset/metadata/analysis/`. It holds the τ study and the 3-way dataset
-  comparison, cited twice in `dataset/DATASET_REPORT.md` and once in Chapter 6 above. All
-  ten references across six files were repointed, and the two tools that write there had
-  their output constants updated so a re-run lands in the new location.
-- `info/experiment 1 baseline/historical_v1_cpu_baseline/` → `info/historical_v1_cpu_baseline/`.
-  v1 is not a v2 experiment and did not belong nested inside one.
-- Each run's `args.yaml` / `hyp.yaml` → into the report folder. They are the only surviving
-  statement of what configuration produced those numbers.
+The layout is enforced in code. `train.py` defaults to `--project checkpoints`;
+`--exist-ok` lets a run land in a pre-created folder instead of forking to `<name>2`,
+while still refusing to start if `weights/best.pt` is already there. When a `REPORTS
+EXPI-*` folder exists in the target, the trainer writes `training_log.csv`, `args.yaml`,
+`hyp.yaml` and `plots/01_training_curves.png` straight into it. [measured] Verified twice:
+a 1-epoch smoke test (six files, nothing loose, no forked directory) and, for real, the
+full 300-epoch experiment 3 run (§1.4), which produced the exact expected layout.
 
-One file was deleted outright: each run's `results.png`, which is regenerated from
-`training_log.csv` by `src/v2/utils/plots.plot_results`.
+**Bug found and fixed while writing this record (2026-08-30).** `src/v2/report.py` still
+hardcoded `video_dir = out_dir / "video"`, writing outside the Rule 1 `demo_video/`
+subdirectory it was supposed to use — experiment 1 and 2's folders had been renamed to
+`demo_video/` by hand during the migration, but the source was never updated, so
+experiment 3's report silently created a second `video/` folder alongside the empty
+pre-created `demo_video/`. Fixed at the source (`video_dir = out_dir / "demo_video"`) and
+the two folders were merged for experiment 3. This is exactly the kind of drift Rule 1
+exists to prevent, and it slipped through because the rule was enforced by convention in
+one place (the migration) and not yet in the code that runs after it.
 
-The layout is enforced in code, not by convention. `train.py` defaults to
-`--project checkpoints`; `--exist-ok` lets a run land in a pre-created folder instead of
-forking to `<name>2`, while still refusing to start if `weights/best.pt` is already there.
-When a `REPORTS EXPI-*` folder exists in the target, the trainer writes `training_log.csv`,
-`args.yaml`, `hyp.yaml` and `plots/01_training_curves.png` straight into it.
-[measured] Verified with a 1-epoch run into the pre-created Expi-3 folder: six files, all
-in the right place, nothing loose in the experiment root, no forked directory. That test
-run was then deleted so the Expi-3 target is empty.
+### C.3 Configuration and timing capture — Rule 1a
 
-### 9.1 Configuration and timing are now captured, not remembered
+Three gaps in the record were closed before experiment 3 started:
 
-Added the same day, before experiment 3 started. Three gaps in the record were closed:
-
-**Augmentations were never in any report.** `hyp.yaml` holds sixteen augmentation
-parameters — mosaic 0.85, close_mosaic 20, mixup 0.10, scale 0.5, degrees 10.0, shear 2.0,
-translate 0.1, perspective 0.0005, fliplr 0.5, hsv_h/s/v, gray 0.10, blur 0.05, erasing
-0.25 — and until now a reader of an experiment report could not see any of them without
-guessing that the live `src/v2/cfg/hyp.yaml` still matched what that run used. It will not,
-the moment anything is tuned. Both `args.yaml` and `hyp.yaml` are now snapshotted into
+**Augmentations were never in any report.** `hyp.yaml`'s sixteen augmentation parameters
+(§1.5.2) were previously only in the live `src/v2/cfg/hyp.yaml`, which drifts the moment
+anything is tuned. Both `args.yaml` and `hyp.yaml` are now snapshotted into
 `REPORTS EXPI-<N>/` at startup, before the first batch.
 
 **Per-epoch time was never recorded.** `training_log.csv` now carries `epoch_seconds`,
-`train_seconds`, `val_seconds` and `elapsed_hours`. Train and validation are split on
-purpose: an augmentation or hyperparameter change moves the training portion, while
+`train_seconds`, `val_seconds`, `elapsed_hours`. Train and validation are split
+deliberately: an augmentation or hyperparameter change moves the training portion, while
 validation is near-fixed overhead, and a single total conceals which one moved.
 
-**Total wall clock lived only in scrollback.** `training_summary.txt` is written at the end
-of every run with the total, epochs completed, mean / fastest / slowest / first / last
-epoch, best fitness, final validation metrics, and the full configuration and augmentation
-block.
+**Total wall clock lived only in scrollback.** `training_summary.txt` is now written at
+run end with total duration, epochs completed, mean/fastest/slowest/first/last epoch, best
+fitness, final validation metrics, and the full configuration and augmentation block.
 
-[measured] Verified with a 2-epoch run into the pre-created Expi-3 folder:
+[measured] Verified with a 2-epoch smoke test before the real run: epoch 1 took 125.2 s,
+epoch 2 took 86.6 s — a 38.6 s (45%) spread between two identically configured epochs, from
+first-touch disk reads and CUDA warm-up. That spread is itself the argument for recording
+every epoch rather than sampling one. This instrumentation then ran for real across
+experiment 3's full 300 epochs (§1.4.5).
 
-| epoch | total | train | val | mAP50 |
-|---|---|---|---|---|
-| 1 | 125.2 s | 109.3 s | 15.9 s | 0.0090 |
-| 2 | 86.6 s | 76.1 s | 10.5 s | 0.1019 |
+One asymmetry is recorded rather than papered over: **experiments 1 and 2 have no
+per-epoch timings at all** — the instrumentation did not exist when they ran. Their totals
+(12.12 h, 6.09 h) are process wall clock read from console output; experiment 1's
+additionally spans a Windows Update reboot. **No per-epoch timing may be quoted for
+experiments 1 or 2.** For this reason a resumed run now reports two totals — process wall
+clock, and the sum of per-epoch timings recovered from the CSV, which is the honest one
+across an interruption.
 
-The 38.6 s spread between two identically configured epochs is itself the argument for
-recording this: epoch 1 carries first-touch disk reads and CUDA warm-up, so any single-epoch
-timing estimate would have been wrong by 45%. Seven files were produced, all in the Rule 1
-positions, nothing loose. The run was then deleted so the Expi-3 target is empty.
+### C.4 Bugs fixed across this phase
 
-One asymmetry is recorded rather than papered over: **experiments 1 and 2 have no per-epoch
-timings at all**, because the instrumentation did not exist when they ran. Experiment 1's
-"12.12 h" and experiment 2's "6.09 h" are process wall clock read from console output, and
-experiment 1's figure additionally spans a Windows Update reboot. Those two runs cannot be
-compared to experiment 3 at epoch granularity, only at the coarse total. For that reason a
-resumed run now reports **two** totals — this process's wall clock, and the sum of the
-per-epoch timings recovered from the CSV, which is the honest one.
+- **`src/v2/val.py` / `src/v2/export.py`** — `load_state_dict` was strict, and every
+  checkpoint carries 418 stray `total_ops` / `total_params` buffers left behind by `thop`
+  profiling in `bench.py`. Loading any checkpoint raised `RuntimeError`; export was
+  completely blocked. Fixed with `strict=False` — those keys are not weights.
+- **`src/v2/report.py`** (`plot_curves`) — indexed a name list with a `numpy.float32`,
+  raising `TypeError`. Fixed with an `int` cast.
+- **`src/v2/report.py`** (`annotate_video`) — hardcoded `video/` instead of the Rule 1
+  `demo_video/` output directory. See C.2. Fixed 2026-08-30.
 
-Two root folders were deleted outright on the same day, on explicit confirmation:
-`env/` (47 MB — an in-project virtualenv with no torch in it; the project runs on the conda
-env `AI-3.11`) and `graphify-out/` (2.1 MB — a knowledge-graph run from 2026-08-24 that
-predated most of the current code, and is regenerable). [measured] Neither is imported
+### C.5 Root directory cleanup
+
+Two root folders were deleted outright, on explicit confirmation: `env/` (47 MB — an
+in-project virtualenv with no torch in it; the project runs on the conda env `AI-3.11`)
+and `graphify-out/` (2.1 MB — a knowledge-graph run from 2026-08-24 predating most of the
+current code, regenerable via `/graphify --update`). [measured] Neither is imported
 anywhere in `src/` or `configs/`, and the active interpreter was confirmed to be the conda
 one, not `env/`, before deleting.
 
-`configs/` was deliberately **left in place**. It is v1's configuration and 10 files under
-`src/` still do `from configs import config`. `src/v2/` never reads it. Removing it would
-mean editing frozen v1 code for tidiness alone, which is not a trade worth making — so the
-project root has five directories, not four, and the reason is written down here rather
-than left to be rediscovered.
+`configs/` was deliberately **left in place** — it is v1's configuration and 10 files
+under `src/` still do `from configs import config`; `src/v2/` never reads it. Removing it
+would mean editing frozen v1 code for tidiness alone. The project root therefore has five
+directories, not four, and the reason is written down here rather than left to be
+rediscovered.
 
-Both standing rules are written at the top of `AGENTS.md`. Rule 2 is why this chapter
-exists.
+Both standing rules (directory layout, mandatory logging) are written at the top of
+`AGENTS.md`. Rule 2 is why this appendix, and Chapter 1, exist.
 
 ---
 

@@ -33,7 +33,42 @@ output as an instrumented signal, not a medical determination.
 """
 from collections import deque
 
+# Default index layout. Every dataset this project has used puts the classes in this
+# order, but the order is a property of the *dataset*, not of this module -- so nothing
+# here assumes it. `resolve_class_ids` derives the real mapping from the class names in
+# the checkpoint, and the monitor is constructed with that. Getting this wrong silently
+# would compute PERCLOS from the wrong class, which is the worst kind of bug: plausible
+# numbers, completely meaningless.
 CLOSED_EYE, OPEN_EYE, YAWNING = 0, 1, 2
+
+# Accepted spellings per role. Roboflow exports in particular vary a lot: Chapter 1 used
+# ('closed_eye','open_eye','yawning'); the Chapter 2 export shipped ('close','open','yawn').
+_ALIASES = {
+    "closed": ("closed_eye", "closed", "close", "closed-eye", "eye_closed", "closedeye"),
+    "open": ("open_eye", "open", "opened", "open-eye", "eye_open", "openeye"),
+    "yawn": ("yawning", "yawn", "yawns", "mouth_open", "yawning_mouth"),
+}
+
+
+def resolve_class_ids(names):
+    """names -> (closed_idx, open_idx, yawn_idx).
+
+    Raises ValueError rather than guessing when a role cannot be matched. A wrong index
+    here produces confident, wrong fatigue telemetry, so failing loudly is correct.
+    """
+    if not names:
+        raise ValueError("no class names supplied; cannot resolve fatigue class indices")
+    lowered = [str(n).strip().lower().replace(" ", "_") for n in names]
+    out = {}
+    for role, aliases in _ALIASES.items():
+        hits = [i for i, n in enumerate(lowered) if n in aliases]
+        if len(hits) != 1:
+            raise ValueError(
+                "cannot resolve the '%s' class from names=%r (matched %d candidates). "
+                "Add the spelling to _ALIASES in src/v2/temporal.py rather than "
+                "renaming label files." % (role, list(names), len(hits)))
+        out[role] = hits[0]
+    return out["closed"], out["open"], out["yawn"]
 
 # Alert ladder, worst-first. Exposed so the HUD and any caller agree on ordering.
 LEVELS = ("SAFE", "WARNING", "CRITICAL")
@@ -49,6 +84,7 @@ class DriverStateMonitor:
     """
 
     def __init__(self, fps=30.0,
+                 names=None,
                  perclos_window_s=60.0,
                  blink_min_ms=100.0,
                  blink_max_ms=400.0,
@@ -71,6 +107,14 @@ class DriverStateMonitor:
         self.perclos_warn = float(perclos_warn)
         self.perclos_alarm = float(perclos_alarm)
         self.yawn_rate_warn = float(yawn_rate_warn)
+
+        # Class indices come from the dataset when names are supplied, otherwise fall
+        # back to the conventional layout. Stored per-instance so one process can
+        # monitor two streams with different class orders.
+        if names:
+            self.closed_id, self.open_id, self.yawn_id = resolve_class_ids(names)
+        else:
+            self.closed_id, self.open_id, self.yawn_id = CLOSED_EYE, OPEN_EYE, YAWNING
 
         # (timestamp, eye_closed) for frames where an eye was visible
         self._eye = deque()
@@ -122,9 +166,9 @@ class DriverStateMonitor:
         self.frame_idx += 1
 
         dets = [] if dets is None or len(dets) == 0 else dets
-        c_conf = self._best_conf(dets, CLOSED_EYE, self.conf_thres)
-        o_conf = self._best_conf(dets, OPEN_EYE, self.conf_thres)
-        y_conf = self._best_conf(dets, YAWNING, self.conf_thres)
+        c_conf = self._best_conf(dets, self.closed_id, self.conf_thres)
+        o_conf = self._best_conf(dets, self.open_id, self.conf_thres)
+        y_conf = self._best_conf(dets, self.yawn_id, self.conf_thres)
 
         eye_seen = (c_conf > 0.0) or (o_conf > 0.0)
         # Both eyes can be detected in different states on a turned head; the more

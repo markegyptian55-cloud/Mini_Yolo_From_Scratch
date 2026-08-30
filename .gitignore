@@ -42,3 +42,6 @@ runs/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Chapter 2 dataset (large, not source-controlled)
+DATASET-CHAPTER 2/

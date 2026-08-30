@@ -1,7 +1,8 @@
 """Full evaluation report for a MiniYOLO-v2 checkpoint: metrics + 10 plots + annotated video.
 
     python -m src.v2.report --weights runs/v2/v2_n384/weights/best.pt --split test \
-        --video "dataset/VIDEO FOR TEST/15-MaleGlasses.mp4" --out info/v2_n384
+        --video "DATASET-CHAPTER 2/VIDEO FOR TEST/15-MaleGlasses.mp4" `
+        --out "checkpoints/EXPI 1-chapter2/REPORTS EXPI 1-chapter2"
 """
 import argparse
 import sys
@@ -442,7 +443,9 @@ def annotate_video(model, names, device, imgsz, conf_thres, video_in, video_out,
     fatigue_tracker = hud.FatigueTracker()
     # Timing comes from the clip's own FPS, not from inference speed, so the temporal
     # numbers describe the driver in the video rather than how fast this GPU ran.
-    monitor = DriverStateMonitor(fps=fps_in, conf_thres=conf_thres)
+    # names come from the checkpoint, so the fatigue logic follows the dataset the
+    # model was actually trained on rather than a hardcoded 0/1/2 assumption.
+    monitor = DriverStateMonitor(fps=fps_in, conf_thres=conf_thres, names=names)
     alert_frames = {"SAFE": 0, "WARNING": 0, "CRITICAL": 0}
     while cap.isOpened():
         ok, frame = cap.read()
@@ -472,7 +475,7 @@ def annotate_video(model, names, device, imgsz, conf_thres, video_in, video_out,
 def parse_args():
     ap = argparse.ArgumentParser("MiniYOLO-v2 full report")
     ap.add_argument("--weights", type=str, required=True)
-    ap.add_argument("--data", type=str, default="dataset/data.yaml")
+    ap.add_argument("--data", type=str, default="DATASET-CHAPTER 2/data.yaml")
     ap.add_argument("--imgsz", type=int, default=384)
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--workers", type=int, default=6)
@@ -481,7 +484,10 @@ def parse_args():
     ap.add_argument("--vid-conf", type=float, default=0.25)
     ap.add_argument("--iou", type=float, default=0.7)
     ap.add_argument("--max-det", type=int, default=300)
-    ap.add_argument("--video", type=str, default="")
+    # Default to the Chapter 2 clip. Passing --video "" disables video telemetry;
+    # any other path overrides. Kept as a real default (not empty) so a report is
+    # never silently produced without the HUD/telemetry section.
+    ap.add_argument("--video", type=str, default="DATASET-CHAPTER 2/VIDEO FOR TEST/15-MaleGlasses.mp4")
     ap.add_argument("--out", type=str, required=True,
                     help='report destination. Per AGENTS.md Rule 1 this must be '
                          '"checkpoints/Expi-<N>-imagez-<Size>/REPORTS EXPI-<N>"')
@@ -494,7 +500,7 @@ def main():
                           and args.device != "cpu" else "cpu")
     out_dir = Path(args.out)
     plots_dir = out_dir / "plots"
-    video_dir = out_dir / "video"
+    video_dir = out_dir / "demo_video"
     plots_dir.mkdir(parents=True, exist_ok=True)
     video_dir.mkdir(parents=True, exist_ok=True)
 

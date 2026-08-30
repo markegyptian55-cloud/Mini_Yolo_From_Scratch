@@ -1,17 +1,19 @@
-data: dataset/data.yaml
+data: DATASET-CHAPTER 2/data.yaml
 hyp: src/v2/cfg/hyp.yaml
 scale: n
+reg_max: 1
 imgsz: 384
 epochs: 300
 batch: 64
-workers: 6
+workers: 4
 optimizer: musgd
 device: '0'
-project: runs/v2
-name: exp
+project: checkpoints
+name: EXPI 1-chapter2
+exist_ok: true
 seed: 0
 patience: 60
-resume: runs\v2\v2_n384\weights\last.pt
+resume: ''
 cache: false
 amp: true
 no_e2e: false

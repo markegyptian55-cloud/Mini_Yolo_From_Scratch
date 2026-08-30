@@ -1,8 +1,0 @@
-check,result,source
-corrupted_images,see pass1 json,"curation_pass1_summary.json (PIL+OpenCV double-decode, all 50654 images)"
-unreadable_images,see pass1 json,same
-invalid_box_coords,see pass1 json,same
-zero_area_boxes,see pass1 json,same
-invalid_class_ids,see pass1 json,same
-near_dup_clusters_size_ge3_collapsed,22099 images removed,this build
-cross_split_neardup_leakage_resolved,385 images removed,this build

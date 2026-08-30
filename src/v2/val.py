@@ -38,7 +38,7 @@ def load_model(weights, device, use_ema=True):
 def parse_args():
     ap = argparse.ArgumentParser("MiniYOLO-v2 validation")
     ap.add_argument("--weights", type=str, required=True)
-    ap.add_argument("--data", type=str, default="dataset/data.yaml")
+    ap.add_argument("--data", type=str, default="DATASET-CHAPTER 2/data.yaml")
     ap.add_argument("--split", type=str, default="val", choices=["train", "val", "test"])
     ap.add_argument("--imgsz", type=int, default=384)
     ap.add_argument("--batch", type=int, default=32)

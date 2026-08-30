@@ -64,12 +64,15 @@ def split_dirs(root, rel):
 
 def parse_args():
     ap = argparse.ArgumentParser("MiniYOLO-v2 trainer")
-    ap.add_argument("--data", type=str, default="dataset/data.yaml")
+    ap.add_argument("--data", type=str, default="DATASET-CHAPTER 2/data.yaml")
     ap.add_argument("--hyp", type=str, default="src/v2/cfg/hyp.yaml")
     ap.add_argument("--scale", type=str, default="n", choices=["p", "t", "n", "s"])
-    ap.add_argument("--reg-max", type=int, default=16,
-                    help="box-regression bins per ltrb side. 16 = DFL (default since "
-                         "experiment 3); 1 = the original DFL-free scalar head")
+    ap.add_argument("--reg-max", type=int, default=1,
+                    help="box-regression bins per ltrb side. 1 = the scalar DFL-free "
+                         "head (default: the proven baseline). 16 = DFL, which "
+                         "Chapter 1 experiment 3 tested and REFUTED -- it lost 0.017 "
+                         "mAP50 and 0.005 mAP50-95 while costing +0.19 MB and ~7% "
+                         "more time. Do not re-enable without a new hypothesis.")
     ap.add_argument("--imgsz", type=int, default=384)
     ap.add_argument("--epochs", type=int, default=300)
     ap.add_argument("--batch", type=int, default=64)
@@ -139,7 +142,7 @@ def main():
         save_dir = increment_path(target, exist_ok=args.exist_ok, mkdir=True)
     # Rule 1: keep the run's exact configuration with its report, not loose in the
     # experiment root. Falls back to the root when there is no REPORTS folder yet.
-    _rep = next(iter(sorted(save_dir.glob("REPORTS EXPI-*"))), None)
+    _rep = next(iter(sorted(save_dir.glob("REPORTS EXPI*"))), None)
     cfg_dir = _rep or save_dir
     cfg_dir.mkdir(parents=True, exist_ok=True)
     with open(cfg_dir / "hyp.yaml", "w", encoding="utf-8") as f:

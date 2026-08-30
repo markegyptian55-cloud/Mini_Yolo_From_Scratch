@@ -22,6 +22,28 @@ COLOR_MAP = {
 }
 CLASS_SHORT = {0: "C", 1: "O", 2: "Y"}
 
+
+def class_short_for(names):
+    """Short per-class label codes derived from the dataset's own names.
+
+    Falls back to the first letter of the name, so an unexpected class still renders
+    something meaningful instead of the wrong fixed letter.
+    """
+    if not names:
+        return dict(CLASS_SHORT)
+    out = {}
+    for i, n in enumerate(names):
+        low = str(n).strip().lower()
+        if low.startswith("close") or "closed" in low:
+            out[i] = "C"
+        elif low.startswith("open"):
+            out[i] = "O"
+        elif low.startswith("yawn"):
+            out[i] = "Y"
+        else:
+            out[i] = str(n)[:1].upper() or "?"
+    return out
+
 COLOR_BG = (12, 15, 20)
 COLOR_MUTED = (120, 130, 140)
 COLOR_BORDER = (55, 70, 65)
